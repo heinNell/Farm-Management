@@ -1,0 +1,111 @@
+{
+  "name": "inspections",
+  "type": "object",
+  "required": [
+    "title",
+    "type",
+    "inspector",
+    "status",
+    "scheduled_date",
+    "creator",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "title": {
+      "bsonType": "string",
+      "description": "Inspection title"
+    },
+    "type": {
+      "bsonType": "string",
+      "enum": [
+        "safety",
+        "pre_season",
+        "compliance",
+        "maintenance",
+        "quality"
+      ],
+      "description": "Inspection type"
+    },
+    "inspector": {
+      "bsonType": "string",
+      "description": "Inspector name"
+    },
+    "status": {
+      "bsonType": "string",
+      "enum": [
+        "scheduled",
+        "in_progress",
+        "completed",
+        "overdue",
+        "cancelled"
+      ],
+      "description": "Inspection status"
+    },
+    "progress": {
+      "bsonType": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Completion percentage"
+    },
+    "score": {
+      "bsonType": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Inspection score"
+    },
+    "scheduled_date": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Scheduled inspection date"
+    },
+    "completed_date": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Actual completion date"
+    },
+    "checklist_items": {
+      "bsonType": "array",
+      "items": {
+        "bsonType": "object",
+        "properties": {
+          "id": {
+            "bsonType": "string"
+          },
+          "description": {
+            "bsonType": "string"
+          },
+          "completed": {
+            "bsonType": "bool"
+          },
+          "notes": {
+            "bsonType": "string"
+          }
+        }
+      },
+      "description": "Inspection checklist"
+    },
+    "findings": {
+      "bsonType": "string",
+      "description": "Inspection findings"
+    },
+    "recommendations": {
+      "bsonType": "string",
+      "description": "Inspector recommendations"
+    },
+    "creator": {
+      "bsonType": "string",
+      "description": "User who created this record"
+    },
+    "createdAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Creation timestamp"
+    },
+    "updatedAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Last update timestamp"
+    }
+  }
+}

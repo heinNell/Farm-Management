@@ -1,0 +1,117 @@
+{
+  "name": "maintenance_schedules",
+  "type": "object",
+  "required": [
+    "equipment_name",
+    "maintenance_type",
+    "interval_type",
+    "interval_value",
+    "next_due_date",
+    "status",
+    "creator",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "equipment_name": {
+      "bsonType": "string",
+      "description": "Equipment name"
+    },
+    "maintenance_type": {
+      "bsonType": "string",
+      "enum": [
+        "preventive",
+        "predictive",
+        "corrective",
+        "routine",
+        "emergency"
+      ],
+      "description": "Type of maintenance"
+    },
+    "interval_type": {
+      "bsonType": "string",
+      "enum": [
+        "hours",
+        "days",
+        "weeks",
+        "months",
+        "calendar"
+      ],
+      "description": "Maintenance interval type"
+    },
+    "interval_value": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Interval numeric value"
+    },
+    "current_hours": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Current equipment hours"
+    },
+    "next_due_date": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Next scheduled maintenance date"
+    },
+    "last_completed": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Last maintenance completion date"
+    },
+    "priority": {
+      "bsonType": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "Maintenance priority"
+    },
+    "assigned_technician": {
+      "bsonType": "string",
+      "description": "Assigned technician"
+    },
+    "status": {
+      "bsonType": "string",
+      "enum": [
+        "scheduled",
+        "overdue",
+        "in_progress",
+        "completed",
+        "skipped"
+      ],
+      "description": "Maintenance status"
+    },
+    "failure_probability": {
+      "bsonType": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Predicted failure probability percentage"
+    },
+    "estimated_cost": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Estimated maintenance cost"
+    },
+    "notes": {
+      "bsonType": "string",
+      "description": "Maintenance notes"
+    },
+    "creator": {
+      "bsonType": "string",
+      "description": "User who created this record"
+    },
+    "createdAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Creation timestamp"
+    },
+    "updatedAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Last update timestamp"
+    }
+  }
+}

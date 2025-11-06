@@ -1,0 +1,45 @@
+
+{
+  "name": "fuel_prices",
+  "options": {
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["fuel_type", "price_per_liter", "effective_date", "created_at"],
+        "properties": {
+          "fuel_type": {
+            "bsonType": "string",
+            "enum": ["diesel", "petrol", "electric", "hybrid"],
+            "description": "Type of fuel"
+          },
+          "price_per_liter": {
+            "bsonType": "number",
+            "minimum": 0,
+            "description": "Price per liter"
+          },
+          "station_name": {
+            "bsonType": "string",
+            "description": "Fuel station name"
+          },
+          "location": {
+            "bsonType": "string",
+            "description": "Station location"
+          },
+          "effective_date": {
+            "bsonType": "string",
+            "title": "datetime",
+            "description": "Price effective date"
+          },
+          "created_at": {
+            "bsonType": "string",
+            "title": "datetime",
+            "description": "Record creation timestamp"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "validationLevel": "moderate",
+    "validationAction": "warn"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "name": "repair_items",
+  "type": "object",
+  "required": [
+    "equipment_name",
+    "defect_tag",
+    "priority",
+    "status",
+    "description",
+    "creator",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "equipment_name": {
+      "bsonType": "string",
+      "description": "Name of equipment requiring repair"
+    },
+    "defect_tag": {
+      "bsonType": "string",
+      "description": "Defect identification tag"
+    },
+    "priority": {
+      "bsonType": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "Repair priority level"
+    },
+    "status": {
+      "bsonType": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "on_hold"
+      ],
+      "description": "Current repair status"
+    },
+    "description": {
+      "bsonType": "string",
+      "description": "Detailed description of the issue"
+    },
+    "estimated_cost": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Estimated repair cost"
+    },
+    "actual_cost": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Actual repair cost"
+    },
+    "assigned_technician": {
+      "bsonType": "string",
+      "description": "Technician assigned to repair"
+    },
+    "photo_urls": {
+      "bsonType": "array",
+      "items": {
+        "bsonType": "string"
+      },
+      "description": "Array of photo URLs"
+    },
+    "warranty_status": {
+      "bsonType": "string",
+      "enum": [
+        "in_warranty",
+        "out_of_warranty",
+        "extended",
+        "unknown"
+      ],
+      "description": "Warranty status"
+    },
+    "estimated_completion": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Estimated completion date"
+    },
+    "completed_date": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Actual completion date"
+    },
+    "creator": {
+      "bsonType": "string",
+      "description": "User who created this record"
+    },
+    "createdAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Creation timestamp"
+    },
+    "updatedAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Last update timestamp"
+    }
+  }
+}

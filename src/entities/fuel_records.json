@@ -1,0 +1,63 @@
+
+{
+  "name": "fuel_records",
+  "options": {
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["asset_id", "fuel_amount", "fuel_cost", "fuel_price_per_liter", "record_type", "created_at"],
+        "properties": {
+          "asset_id": {
+            "bsonType": "string",
+            "description": "Reference to assets collection"
+          },
+          "fuel_amount": {
+            "bsonType": "number",
+            "minimum": 0,
+            "description": "Fuel amount in liters"
+          },
+          "fuel_cost": {
+            "bsonType": "number",
+            "minimum": 0,
+            "description": "Total fuel cost"
+          },
+          "fuel_price_per_liter": {
+            "bsonType": "number",
+            "minimum": 0,
+            "description": "Price per liter"
+          },
+          "record_type": {
+            "bsonType": "string",
+            "enum": ["purchase", "consumption", "refill"],
+            "description": "Type of fuel record"
+          },
+          "station_name": {
+            "bsonType": "string",
+            "description": "Fuel station name"
+          },
+          "receipt_number": {
+            "bsonType": "string",
+            "description": "Receipt reference number"
+          },
+          "odometer_reading": {
+            "bsonType": "number",
+            "minimum": 0,
+            "description": "Equipment hour reading"
+          },
+          "notes": {
+            "bsonType": "string",
+            "description": "Additional notes"
+          },
+          "created_at": {
+            "bsonType": "string",
+            "title": "datetime",
+            "description": "Record creation timestamp"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "validationLevel": "moderate",
+    "validationAction": "warn"
+  }
+}

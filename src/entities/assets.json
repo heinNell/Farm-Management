@@ -1,0 +1,73 @@
+
+{
+  "name": "assets",
+  "options": {
+    "validator": {
+      "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["asset_id", "name", "type", "fuel_type", "tank_capacity", "status", "created_at"],
+        "properties": {
+          "asset_id": {
+            "bsonType": "string",
+            "description": "Unique asset identifier"
+          },
+          "name": {
+            "bsonType": "string",
+            "description": "Asset name"
+          },
+          "type": {
+            "bsonType": "string",
+            "enum": ["tractor", "forklift", "motorbike", "generator"],
+            "description": "Equipment category"
+          },
+          "fuel_type": {
+            "bsonType": "string",
+            "enum": ["diesel", "petrol", "electric", "hybrid"],
+            "description": "Fuel type"
+          },
+          "tank_capacity": {
+            "bsonType": "number",
+            "minimum": 0,
+            "description": "Fuel tank capacity in liters"
+          },
+          "manufacturer": {
+            "bsonType": "string",
+            "description": "Equipment manufacturer"
+          },
+          "model": {
+            "bsonType": "string",
+            "description": "Equipment model"
+          },
+          "year": {
+            "bsonType": "int",
+            "minimum": 1900,
+            "maximum": 2030,
+            "description": "Manufacturing year"
+          },
+          "status": {
+            "bsonType": "string",
+            "enum": ["active", "maintenance", "retired"],
+            "description": "Asset status"
+          },
+          "location": {
+            "bsonType": "string",
+            "description": "Current location"
+          },
+          "created_at": {
+            "bsonType": "string",
+            "title": "datetime",
+            "description": "Asset registration date"
+          },
+          "updated_at": {
+            "bsonType": "string",
+            "title": "datetime",
+            "description": "Last update timestamp"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "validationLevel": "moderate",
+    "validationAction": "warn"
+  }
+}
