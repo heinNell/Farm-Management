@@ -1,0 +1,99 @@
+{
+  "name": "job_cards",
+  "type": "object",
+  "required": [
+    "title",
+    "description",
+    "priority",
+    "status",
+    "assigned_to",
+    "location",
+    "creator",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "title": {
+      "bsonType": "string",
+      "description": "Job card title"
+    },
+    "description": {
+      "bsonType": "string",
+      "description": "Detailed job description"
+    },
+    "priority": {
+      "bsonType": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "description": "Job priority"
+    },
+    "status": {
+      "bsonType": "string",
+      "enum": [
+        "todo",
+        "in_progress",
+        "review",
+        "completed",
+        "cancelled"
+      ],
+      "description": "Current job status"
+    },
+    "assigned_to": {
+      "bsonType": "string",
+      "description": "Person assigned to this job"
+    },
+    "location": {
+      "bsonType": "string",
+      "description": "Job location"
+    },
+    "estimated_hours": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Estimated hours to complete"
+    },
+    "actual_hours": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Actual hours spent"
+    },
+    "due_date": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Job due date"
+    },
+    "completed_date": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Job completion date"
+    },
+    "tags": {
+      "bsonType": "array",
+      "items": {
+        "bsonType": "string"
+      },
+      "description": "Job tags for categorization"
+    },
+    "notes": {
+      "bsonType": "string",
+      "description": "Additional notes"
+    },
+    "creator": {
+      "bsonType": "string",
+      "description": "User who created this record"
+    },
+    "createdAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Creation timestamp"
+    },
+    "updatedAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Last update timestamp"
+    }
+  }
+}

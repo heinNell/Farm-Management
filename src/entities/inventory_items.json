@@ -1,0 +1,102 @@
+{
+  "name": "inventory_items",
+  "type": "object",
+  "required": [
+    "sku",
+    "name",
+    "category",
+    "current_stock",
+    "min_stock",
+    "unit",
+    "location",
+    "status",
+    "creator",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "sku": {
+      "bsonType": "string",
+      "description": "Stock keeping unit identifier"
+    },
+    "name": {
+      "bsonType": "string",
+      "description": "Item name"
+    },
+    "category": {
+      "bsonType": "string",
+      "enum": [
+        "parts",
+        "tools",
+        "consumables",
+        "equipment",
+        "chemicals",
+        "seeds"
+      ],
+      "description": "Item category"
+    },
+    "current_stock": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Current stock quantity"
+    },
+    "min_stock": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Minimum stock threshold"
+    },
+    "max_stock": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Maximum stock capacity"
+    },
+    "unit": {
+      "bsonType": "string",
+      "enum": [
+        "pieces",
+        "liters",
+        "kg",
+        "meters",
+        "boxes"
+      ],
+      "description": "Unit of measurement"
+    },
+    "location": {
+      "bsonType": "string",
+      "description": "Storage location"
+    },
+    "status": {
+      "bsonType": "string",
+      "enum": [
+        "in_stock",
+        "low_stock",
+        "out_of_stock",
+        "discontinued"
+      ],
+      "description": "Stock status"
+    },
+    "supplier": {
+      "bsonType": "string",
+      "description": "Supplier name"
+    },
+    "unit_cost": {
+      "bsonType": "number",
+      "minimum": 0,
+      "description": "Cost per unit"
+    },
+    "creator": {
+      "bsonType": "string",
+      "description": "User who created this record"
+    },
+    "createdAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Creation timestamp"
+    },
+    "updatedAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Last update timestamp"
+    }
+  }
+}

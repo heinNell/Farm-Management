@@ -1,7 +1,11 @@
 
 import React, { useState, useMemo } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
+<<<<<<< HEAD
 import { BarChart3, TrendingUp, PieChart as PieChartIcon } from 'lucide-react'
+=======
+import {Calendar, BarChart3, TrendingUp, PieChart as PieChartIcon} from 'lucide-react'
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
 
 interface FuelRecord {
   id: string
@@ -22,6 +26,7 @@ interface FuelConsumptionChartProps {
 type ChartType = 'area' | 'bar' | 'line' | 'pie'
 type TimeGrouping = 'day' | 'week' | 'month' | 'quarter'
 
+<<<<<<< HEAD
 interface ProcessedDataItem {
   period: string
   totalQuantity: number
@@ -43,6 +48,8 @@ interface TooltipProps {
   label?: string
 }
 
+=======
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
 
 export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({ 
@@ -55,7 +62,11 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
   const [selectedAssets, setSelectedAssets] = useState<string[]>([])
 
   // Process and group data based on time period
+<<<<<<< HEAD
   const processedData = useMemo((): ProcessedDataItem[] => {
+=======
+  const processedData = useMemo(() => {
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     if (!data || data.length === 0) return []
 
     // Filter by selected assets if any
@@ -64,6 +75,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
       : data
 
     // Group by time period
+<<<<<<< HEAD
     interface GroupedItem {
       period: string
       totalQuantity: number
@@ -73,19 +85,28 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
       assets: Set<string>
     }
 
+=======
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     const grouped = filteredData.reduce((acc, record) => {
       const date = new Date(record.date)
       let key: string
 
+<<<<<<< HEAD
       let weekStart: Date
       let quarter: number
       
+=======
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
       switch (timeGrouping) {
         case 'day':
           key = date.toISOString().split('T')[0]
           break
         case 'week':
+<<<<<<< HEAD
           weekStart = new Date(date)
+=======
+          const weekStart = new Date(date)
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
           weekStart.setDate(date.getDate() - date.getDay())
           key = weekStart.toISOString().split('T')[0]
           break
@@ -93,7 +114,11 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
           key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
           break
         case 'quarter':
+<<<<<<< HEAD
           quarter = Math.floor(date.getMonth() / 3) + 1
+=======
+          const quarter = Math.floor(date.getMonth() / 3) + 1
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
           key = `${date.getFullYear()}-Q${quarter}`
           break
         default:
@@ -119,6 +144,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
       }
 
       return acc
+<<<<<<< HEAD
     }, {} as Record<string, GroupedItem>)
 
     // Convert to array and calculate averages
@@ -128,6 +154,14 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
       totalCost: item.totalCost,
       averagePrice: item.totalCost / item.totalQuantity,
       recordCount: item.recordCount,
+=======
+    }, {} as Record<string, any>)
+
+    // Convert to array and calculate averages
+    return Object.values(grouped).map((item: any) => ({
+      ...item,
+      averagePrice: item.totalCost / item.totalQuantity,
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
       assetCount: item.assets.size,
       assets: Array.from(item.assets)
     })).sort((a, b) => a.period.localeCompare(b.period))
@@ -135,7 +169,11 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
 
   // Get unique assets for filtering
   const uniqueAssets = useMemo(() => {
+<<<<<<< HEAD
     const assets = new Map<string, string>()
+=======
+    const assets = new Map()
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     data.forEach(record => {
       if (record.asset_name) {
         assets.set(record.asset_id, record.asset_name)
@@ -177,12 +215,20 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
     })
   }
 
+<<<<<<< HEAD
   const CustomTooltip: React.FC<TooltipProps> = ({ active, payload, label }) => {
+=======
+  const CustomTooltip = ({ active, payload, label }: any) => {
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
         <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
+<<<<<<< HEAD
           <p className="font-semibold text-gray-900">{formatPeriod(label || '')}</p>
+=======
+          <p className="font-semibold text-gray-900">{formatPeriod(label)}</p>
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
           <p className="text-blue-600">
             Total Fuel: <span className="font-bold">{data.totalQuantity.toFixed(1)}L</span>
           </p>
@@ -210,7 +256,11 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
     return null
   }
 
+<<<<<<< HEAD
   const renderChart = (): React.ReactElement => {
+=======
+  const renderChart = () => {
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     switch (chartType) {
       case 'area':
         return (
@@ -286,6 +336,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
         )
 
       default:
+<<<<<<< HEAD
         return (
           <AreaChart data={processedData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -302,6 +353,9 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
             />
           </AreaChart>
         )
+=======
+        return null
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     }
   }
 

@@ -1,6 +1,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
+<<<<<<< HEAD
 import { supabase } from '../lib/supabase'
+=======
+import { lumi } from '../lib/lumi'
+>>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
 import { Asset, FuelRecord, OperatingSession, FuelPrice, ComprehensiveFuelKPI } from '../types/fuel'
 import { FuelKPICalculator } from '../utils/fuelCalculations'
 import toast from 'react-hot-toast'
