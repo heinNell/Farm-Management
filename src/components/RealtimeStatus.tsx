@@ -1,7 +1,11 @@
-
-import React, { useState, useEffect } from 'react'
+import { RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react'
+
+// Add type for system payload
+interface SystemPayload {
+  status: string
+}
 
 export const RealtimeStatus: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false)
@@ -32,7 +36,7 @@ export const RealtimeStatus: React.FC = () => {
     // Monitor connection status
     const channel = supabase
       .channel('status-monitor')
-      .on('system', {}, (payload) => {
+      .on('system', {}, (payload: SystemPayload) => {
         handleConnectionChange(payload.status)
       })
       .subscribe((status) => {
@@ -44,14 +48,14 @@ export const RealtimeStatus: React.FC = () => {
       if (reconnectTimer) {
         clearTimeout(reconnectTimer)
       }
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [connectionAttempts])
 
   const handleManualReconnect = () => {
     setConnectionAttempts(0)
     // Force reconnection
-    supabase.channel('manual-reconnect').subscribe()
+    void supabase.channel('manual-reconnect').subscribe()
   }
 
   return (

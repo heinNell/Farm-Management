@@ -1,7 +1,6 @@
-
-import React, { useState } from 'react'
-import {ChevronLeft, ChevronRight, Calendar as CalendarIcon} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
 
 interface MaintenanceItem {
   id: string

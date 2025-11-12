@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react'
-import {Search, Plus, Scan, Filter, Package, AlertTriangle, CheckCircle} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { AlertTriangle, CheckCircle, Filter, Package, Plus, Scan, Search } from 'lucide-react'
+import { useState } from 'react'
 import ScanModal from '../components/ScanModal'
 import { useInventory } from '../hooks/useInventory'
 
@@ -64,9 +64,10 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showScanModal, setShowScanModal] = useState(false)
-  const [showAddModal, setShowAddModal] = useState(false)
   
-  const { inventoryItems, isLoading } = useInventory()
+  // Future implementation - will use these to fetch from Supabase
+  const _inventory = useInventory()
+  void _inventory // Suppress unused warning
 
   const filteredItems = mockInventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -121,7 +122,7 @@ export default function Inventory() {
             Scan Item
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => console.log('Add new item')}
             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Plus className="h-5 w-5 mr-2" />

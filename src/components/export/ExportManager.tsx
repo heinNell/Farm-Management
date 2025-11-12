@@ -1,7 +1,7 @@
 
+import { AnimatePresence, motion } from 'framer-motion'
+import { AlertCircle, Calendar, CheckCircle, Download, FileText, Filter, Settings, X } from 'lucide-react'
 import React, { useState } from 'react'
-import {Download, FileText, Calendar, Filter, Settings, CheckCircle, AlertCircle, X} from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import useExportData from '../../hooks/useExportData'
 
 interface ExportManagerProps {
@@ -61,39 +61,41 @@ export const ExportManager: React.FC<ExportManagerProps> = ({
     { value: 'pdf', label: 'PDF', description: 'Portable document format' }
   ]
 
-  const handleExport = async () => {
-    const exportOptions = {
-      format: selectedFormat,
-      dateRange: {
-        start: dateRange.start,
-        end: dateRange.end
-      },
-      assetIds: selectedAssets,
-      includeImages,
-      groupBy
-    }
-
-    try {
-      switch (selectedDataType) {
-        case 'fuel':
-          await exportFuelRecords(exportOptions)
-          break
-        case 'maintenance':
-          await exportMaintenanceRecords(exportOptions)
-          break
-        case 'inventory':
-          await exportInventoryData(exportOptions)
-          break
-        case 'assets':
-          await exportAssetData(exportOptions)
-          break
-        case 'comprehensive':
-          await exportComprehensiveReport(exportOptions)
-          break
+  const handleExport = (): void => {
+    void (async () => {
+      const exportOptions = {
+        format: selectedFormat,
+        dateRange: dateRange.start && dateRange.end ? {
+          start: dateRange.start,
+          end: dateRange.end
+        } : undefined,
+        assetIds: selectedAssets,
+        includeImages,
+        groupBy
       }
-    } catch (err) {
-      console.error('Export failed:', err)
-    }
+
+      try {
+        switch (selectedDataType) {
+          case 'fuel':
+            await exportFuelRecords(exportOptions)
+            break
+          case 'maintenance':
+            await exportMaintenanceRecords(exportOptions)
+            break
+          case 'inventory':
+            await exportInventoryData(exportOptions)
+            break
+          case 'assets':
+            await exportAssetData(exportOptions)
+            break
+          case 'comprehensive':
+            await exportComprehensiveReport(exportOptions)
+            break
+        }
+      } catch (err) {
+        console.error('Export failed:', err)
+      }
+    })()
   }
 
   const handleAssetToggle = (assetId: string) => {
@@ -314,7 +316,7 @@ export const ExportManager: React.FC<ExportManagerProps> = ({
                   <label className="block text-xs text-gray-500 mb-1">Group data by</label>
                   <select
                     value={groupBy}
-                    onChange={(e) => setGroupBy(e.target.value as any)}
+                    onChange={(e) => setGroupBy(e.target.value as 'asset' | 'date' | 'type' | 'none')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="none">No grouping</option>

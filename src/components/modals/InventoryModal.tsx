@@ -1,12 +1,13 @@
 
-import React, { useState, useEffect } from 'react'
-import {Package} from 'lucide-react'
-import Modal from '../ui/Modal'
+import { Package } from 'lucide-react'
+import type { FormEvent } from 'react'
+import { useEffect, useState } from 'react'
+import { InventoryFormData, InventoryItem } from '../../types/database'
+import { inventorySchema, validateForm } from '../../utils/validation'
 import FormField from '../ui/FormField'
 import FormSelect from '../ui/FormSelect'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import { InventoryItem, InventoryFormData } from '../../types/database'
-import { inventorySchema, validateForm } from '../../utils/validation'
+import Modal from '../ui/Modal'
 
 interface InventoryModalProps {
   isOpen: boolean
@@ -43,7 +44,7 @@ export default function InventoryModal({
   item,
   loading = false
 }: InventoryModalProps) {
-  const [formData, setFormData] = useState<InventoryFormData>({
+  const createInitialFormState = (): InventoryFormData => ({
     sku: '',
     name: '',
     category: '',
@@ -53,7 +54,9 @@ export default function InventoryModal({
     unit: '',
     location: ''
   })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const [formData, setFormData] = useState<InventoryFormData>(() => createInitialFormState())
+  const [errors, setErrors] = useState<Partial<Record<keyof InventoryFormData, string>>>({})
 
   useEffect(() => {
     if (item) {
@@ -68,47 +71,43 @@ export default function InventoryModal({
         location: item.location
       })
     } else {
-      setFormData({
-        sku: '',
-        name: '',
-        category: '',
-        current_stock: 0,
-        min_stock: 0,
-        max_stock: 100,
-        unit: '',
-        location: ''
-      })
+      setFormData(createInitialFormState())
     }
     setErrors({})
   }, [item, isOpen])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
-    const validation = validateForm(inventorySchema, formData)
-    if (!validation.success) {
-      setErrors(validation.errors || {})
+    const validation = validateForm<InventoryFormData>(inventorySchema, formData)
+    if (!validation.success || !validation.data) {
+      setErrors(validation.errors ?? {})
       return
     }
 
+    const validatedData = validation.data
+
     // Additional validation
-    if (formData.min_stock >= formData.max_stock) {
+    if (validatedData.min_stock >= validatedData.max_stock) {
       setErrors({ min_stock: 'Min stock must be less than max stock' })
       return
     }
 
-    try {
-      await onSubmit(validation.data!)
-      onClose()
-    } catch (error) {
-      console.error('Failed to submit form:', error)
-    }
+    void (async () => {
+      try {
+        await onSubmit(validatedData)
+        onClose()
+      } catch (error) {
+        console.error('Failed to submit form:', error)
+      }
+    })()
   }
 
-  const updateField = (field: keyof InventoryFormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const updateField = <K extends keyof InventoryFormData>(field: K, value: InventoryFormData[K] | string | number) => {
+    const nextValue = value as InventoryFormData[K]
+    setFormData(prev => ({ ...prev, [field]: nextValue }))
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
+      setErrors(prev => ({ ...prev, [field]: undefined }))
     }
   }
 

@@ -1,7 +1,45 @@
-
-import React, { useState } from 'react'
-import {Save, Bell, Shield, Database, Users, Settings as SettingsIcon} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { Bell, Database, Save, Settings as SettingsIcon, Shield, Users } from 'lucide-react'
+import { useState } from 'react'
+
+// Define proper types for settings
+interface GeneralSettings {
+  farmName: string
+  timezone: string
+  language: string
+  theme: string
+  autoSave: boolean
+}
+
+interface NotificationSettings {
+  emailNotifications: boolean
+  pushNotifications: boolean
+  maintenanceAlerts: boolean
+  inventoryAlerts: boolean
+  jobReminders: boolean
+  inspectionReminders: boolean
+}
+
+interface SecuritySettings {
+  twoFactorAuth: boolean
+  sessionTimeout: number
+  passwordExpiry: number
+  loginAttempts: number
+}
+
+interface DataSettings {
+  autoBackup: boolean
+  backupFrequency: string
+  offlineSync: boolean
+  dataRetention: number
+}
+
+interface AppSettings {
+  general: GeneralSettings
+  notifications: NotificationSettings
+  security: SecuritySettings
+  data: DataSettings
+}
 
 const settingsSections = [
   {
@@ -38,7 +76,7 @@ const settingsSections = [
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState('general')
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<AppSettings>({
     general: {
       farmName: 'Green Valley Farm',
       timezone: 'America/New_York',
@@ -68,11 +106,15 @@ export default function Settings() {
     }
   })
 
-  const handleSettingChange = (section: string, key: string, value: any) => {
+  const handleSettingChange = <T extends keyof AppSettings>(
+    section: T,
+    key: keyof AppSettings[T],
+    value: AppSettings[T][keyof AppSettings[T]]
+  ) => {
     setSettings(prev => ({
       ...prev,
       [section]: {
-        ...prev[section as keyof typeof prev],
+        ...prev[section],
         [key]: value
       }
     }))
@@ -173,7 +215,7 @@ export default function Settings() {
           <input
             type="checkbox"
             checked={value as boolean}
-            onChange={(e) => handleSettingChange('notifications', key, e.target.checked)}
+            onChange={(e) => handleSettingChange('notifications', key as keyof NotificationSettings, e.target.checked)}
             className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
           />
         </div>

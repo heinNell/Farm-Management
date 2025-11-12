@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react'
-import {Plus, Search, Filter, MapPin, Clock, User, AlertTriangle} from 'lucide-react'
+import { useState } from 'react'
+import {Plus, Search, MapPin, Clock, User, AlertTriangle} from 'lucide-react'
 import { motion } from 'framer-motion'
 import JobKanban from '../components/JobKanban'
 

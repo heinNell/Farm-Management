@@ -1,8 +1,7 @@
-
-import React from 'react'
-import { useAuthContext } from './AuthProvider'
 import { motion } from 'framer-motion'
-import {Shield, AlertTriangle, Lock} from 'lucide-react'
+import { AlertTriangle, Lock, Shield } from 'lucide-react'
+import { useContext } from 'react'
+import { AuthContext } from './AuthContext'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -15,7 +14,13 @@ export default function ProtectedRoute({
   requiredRole = 'USER',
   fallback 
 }: ProtectedRouteProps) {
-  const { isAuthenticated, userRole, loading } = useAuthContext()
+  const context = useContext(AuthContext)
+  
+  if (!context) {
+    throw new Error('ProtectedRoute must be used within AuthProvider')
+  }
+  
+  const { isAuthenticated, userRole, loading } = context
 
   // Loading state
   if (loading) {

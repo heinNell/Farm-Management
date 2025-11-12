@@ -1,8 +1,8 @@
 
+import { Activity, BarChart3, Calendar, Clock, DollarSign, Fuel, TrendingUp, Users } from 'lucide-react'
 import React from 'react'
 import { useFuelData } from '../../hooks/useFuelData'
-import {Fuel, TrendingUp, DollarSign, Clock, Activity, BarChart3, Users, Calendar} from 'lucide-react'
-import { formatConsumption, formatCurrency, formatPercentage, formatHours } from '../../utils/fuelCalculations'
+import { formatConsumption, formatCurrency, formatHours, formatPercentage } from '../../utils/fuelCalculations'
 
 const FuelDashboard: React.FC = () => {
   const { kpis, assets, loading } = useFuelData()
@@ -204,7 +204,7 @@ const FuelDashboard: React.FC = () => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Fuel Trends</h3>
         {kpis.performance.monthlyTrends.length > 0 ? (
           <div className="space-y-4">
-            {kpis.performance.monthlyTrends.map((trend, index) => (
+            {kpis.performance.monthlyTrends.map((trend) => (
               <div key={trend.month} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center">
                   <Calendar className="h-5 w-5 text-gray-400 mr-3" />

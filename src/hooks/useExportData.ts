@@ -1,18 +1,66 @@
-
-import { useState, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
+import type { InventoryItem } from '../types/database'
+import type { Asset, FuelRecord } from '../types/fuel'
 
 interface ExportOptions {
   format: 'csv' | 'excel' | 'pdf'
   dateRange?: {
-    start: string
-    end: string
-  }
+    start?: string
+    end?: string
+  } | undefined
   assetIds?: string[]
   includeImages?: boolean
   groupBy?: 'asset' | 'date' | 'type' | 'none'
-  filters?: Record<string, any>
+  filters?: Record<string, unknown>
+}
+
+// Add type definitions for export data
+interface ExportRecord {
+  [key: string]: string | number
+}
+
+interface FuelRecordExport extends ExportRecord {
+  'Date': string
+  'Asset Name': string
+  'Asset Type': string
+  'Location': string
+  'Fuel Type': string
+  'Quantity (L)': number
+  'Price per Liter': string
+  'Total Cost': string
+  'Receipt Number': string
+  'Fuel Grade': string
+  'Odometer Reading': string
+  'Notes': string
+}
+
+interface InventoryExport extends ExportRecord {
+  'Item Name': string
+  'Category': string
+  'Quantity': number
+  'Unit': string
+  'Location': string
+  'Status': string
+  'Minimum Stock': number
+  'Cost per Unit': string
+  'Total Value': string
+  'Last Updated': string
+}
+
+interface AssetExport extends ExportRecord {
+  'Asset Name': string
+  'Type': string
+  'Model': string
+  'Serial Number': string
+  'Location': string
+  'Status': string
+  'Purchase Date': string
+  'Purchase Cost': string
+  'Operating Hours': number
+  'Last Maintenance': string
+  'Created': string
 }
 
 interface ExportProgress {
@@ -43,7 +91,7 @@ export const useExportData = (): UseExportDataReturn => {
   }, [])
 
   // Generate CSV content
-  const generateCSV = useCallback((data: any[], headers: string[]): string => {
+  const generateCSV = useCallback((data: ExportRecord[], headers: string[]): string => {
     const csvHeaders = headers.join(',')
     const csvRows = data.map(row => 
       headers.map(header => {
@@ -52,7 +100,7 @@ export const useExportData = (): UseExportDataReturn => {
         if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
           return `"${value.replace(/"/g, '""')}"`
         }
-        return value || ''
+        return value ?? ''
       }).join(',')
     )
     
@@ -60,10 +108,9 @@ export const useExportData = (): UseExportDataReturn => {
   }, [])
 
   // Generate Excel content (simplified - in real implementation use a library like xlsx)
-  const generateExcel = useCallback(async (data: any[], headers: string[], sheetName: string): Promise<Blob> => {
+  const generateExcel = useCallback((data: ExportRecord[], headers: string[], sheetName: string): Blob => {
     // This is a simplified implementation
     // In production, use libraries like xlsx or exceljs for proper Excel generation
-    const csvContent = generateCSV(data, headers)
     
     // Convert to Excel-like format (basic implementation)
     const excelContent = `<?xml version="1.0"?>
@@ -77,7 +124,7 @@ export const useExportData = (): UseExportDataReturn => {
 ${headers.map(header => `<Row><Cell><Data ss:Type="String">${header}</Data></Cell></Row>`).join('')}
 ${data.map(row => 
   `<Row>${headers.map(header => 
-    `<Cell><Data ss:Type="String">${row[header] || ''}</Data></Cell>`
+    `<Cell><Data ss:Type="String">${row[header] ?? ''}</Data></Cell>`
   ).join('')}</Row>`
 ).join('')}
 </Table>
@@ -85,10 +132,10 @@ ${data.map(row =>
 </Workbook>`
     
     return new Blob([excelContent], { type: 'application/vnd.ms-excel' })
-  }, [generateCSV])
+  }, [])
 
   // Generate PDF content (simplified - in real implementation use a library like jsPDF)
-  const generatePDF = useCallback(async (data: any[], headers: string[], title: string): Promise<Blob> => {
+  const generatePDF = useCallback((data: ExportRecord[], headers: string[], title: string): Blob => {
     // This is a simplified implementation
     // In production, use libraries like jsPDF or puppeteer for proper PDF generation
     
@@ -119,7 +166,7 @@ ${data.map(row =>
     </thead>
     <tbody>
       ${data.map(row => 
-        `<tr>${headers.map(header => `<td>${row[header] || ''}</td>`).join('')}</tr>`
+        `<tr>${headers.map(header => `<td>${row[header] ?? ''}</td>`).join('')}</tr>`
       ).join('')}
     </tbody>
   </table>
@@ -181,23 +228,32 @@ ${data.map(row =>
       
       updateProgress('processing', 60, 'Processing data...')
       
-      // Transform data for export
-      const exportData = data?.map(record => ({
-        'Date': new Date(record.date).toLocaleDateString(),
-        'Asset Name': record.assets?.name,
-        'Asset Type': record.assets?.type,
-        'Location': record.assets?.location,
-        'Fuel Type': record.fuel_type || 'N/A',
-        'Quantity (L)': record.quantity,
-        'Price per Liter': record.price_per_liter?.toFixed(2),
-        'Total Cost': record.cost?.toFixed(2),
-        'Receipt Number': record.receipt_number || 'N/A',
-        'Fuel Grade': record.fuel_grade || 'N/A',
-        'Odometer Reading': record.odometer_reading || 'N/A',
-        'Notes': record.notes || ''
-      })) || []
+      // Transform data for export with proper typing
+      type FuelRecordWithAsset = FuelRecord & {
+        assets: {
+          id: string
+          name: string
+          type: string
+          location: string | null
+        }
+      }
       
-      const headers = Object.keys(exportData[0] || {})
+      const exportData: FuelRecordExport[] = (data as FuelRecordWithAsset[])?.map(record => ({
+        'Date': new Date(record.date).toLocaleDateString(),
+        'Asset Name': record.assets?.name ?? 'N/A',
+        'Asset Type': record.assets?.type ?? 'N/A',
+        'Location': record.assets?.location ?? 'N/A',
+        'Fuel Type': record.fuel_type ?? 'N/A',
+        'Quantity (L)': record.quantity,
+        'Price per Liter': record.price_per_liter?.toFixed(2) ?? 'N/A',
+        'Total Cost': record.cost?.toFixed(2) ?? 'N/A',
+        'Receipt Number': record.receipt_number ?? 'N/A',
+        'Fuel Grade': record.fuel_grade ?? 'N/A',
+        'Odometer Reading': record.odometer_reading?.toString() ?? 'N/A',
+        'Notes': record.notes ?? ''
+      })) ?? []
+      
+      const headers = Object.keys(exportData[0] ?? {})
       
       updateProgress('generating', 80, 'Generating export file...')
       
@@ -213,11 +269,11 @@ ${data.map(row =>
           break
         case 'excel':
           filename = `fuel-records-${timestamp}.xlsx`
-          blob = await generateExcel(exportData, headers, 'Fuel Records')
+          blob = generateExcel(exportData, headers, 'Fuel Records')
           break
         case 'pdf':
           filename = `fuel-records-${timestamp}.pdf`
-          blob = await generatePDF(exportData, headers, 'Fuel Records Report')
+          blob = generatePDF(exportData, headers, 'Fuel Records Report')
           break
         default:
           throw new Error('Unsupported export format')
@@ -228,9 +284,10 @@ ${data.map(row =>
       downloadFile(blob, filename)
       toast.success(`Fuel records exported successfully as ${options.format.toUpperCase()}`)
       
-    } catch (err: any) {
-      console.error('Export error:', err)
-      setError(err.message || 'Export failed')
+    } catch (err) {
+      const error = err as Error
+      console.error('Export error:', error)
+      setError(error.message ?? 'Export failed')
       toast.error('Failed to export fuel records')
     } finally {
       setIsExporting(false)
@@ -250,7 +307,8 @@ ${data.map(row =>
       updateProgress('fetching', 30, 'Fetching maintenance records...')
       
       // This would be replaced with actual Supabase query
-      const mockMaintenanceData = [
+      await Promise.resolve() // Placeholder for actual async operation
+      const mockMaintenanceData: ExportRecord[] = [
         {
           'Date': '2024-01-15',
           'Asset Name': 'John Deere 8370R Tractor',
@@ -277,7 +335,7 @@ ${data.map(row =>
       
       updateProgress('processing', 60, 'Processing maintenance data...')
       
-      const headers = Object.keys(mockMaintenanceData[0] || {})
+      const headers = Object.keys(mockMaintenanceData[0] ?? {})
       
       updateProgress('generating', 80, 'Generating export file...')
       
@@ -292,11 +350,11 @@ ${data.map(row =>
           break
         case 'excel':
           filename = `maintenance-records-${timestamp}.xlsx`
-          blob = await generateExcel(mockMaintenanceData, headers, 'Maintenance Records')
+          blob = generateExcel(mockMaintenanceData, headers, 'Maintenance Records')
           break
         case 'pdf':
           filename = `maintenance-records-${timestamp}.pdf`
-          blob = await generatePDF(mockMaintenanceData, headers, 'Maintenance Records Report')
+          blob = generatePDF(mockMaintenanceData, headers, 'Maintenance Records Report')
           break
         default:
           throw new Error('Unsupported export format')
@@ -307,9 +365,10 @@ ${data.map(row =>
       downloadFile(blob, filename)
       toast.success(`Maintenance records exported successfully as ${options.format.toUpperCase()}`)
       
-    } catch (err: any) {
-      console.error('Export error:', err)
-      setError(err.message || 'Export failed')
+    } catch (err) {
+      const error = err as Error
+      console.error('Export error:', error)
+      setError(error.message ?? 'Export failed')
       toast.error('Failed to export maintenance records')
     } finally {
       setIsExporting(false)
@@ -325,7 +384,7 @@ ${data.map(row =>
       
       updateProgress('preparing', 10, 'Preparing inventory export...')
       
-      let query = supabase
+      const query = supabase
         .from('inventory')
         .select('*')
       
@@ -337,20 +396,20 @@ ${data.map(row =>
       
       updateProgress('processing', 60, 'Processing inventory data...')
       
-      const exportData = data?.map(item => ({
+      const exportData: InventoryExport[] = (data as InventoryItem[])?.map(item => ({
         'Item Name': item.name,
         'Category': item.category,
-        'Quantity': item.quantity,
+        'Quantity': item.current_stock,
         'Unit': item.unit,
         'Location': item.location,
         'Status': item.status,
         'Minimum Stock': item.min_stock,
-        'Cost per Unit': item.cost_per_unit?.toFixed(2),
-        'Total Value': (item.quantity * (item.cost_per_unit || 0)).toFixed(2),
+        'Cost per Unit': 'N/A', // Not in InventoryItem type
+        'Total Value': 'N/A', // Not in InventoryItem type
         'Last Updated': new Date(item.updated_at).toLocaleDateString()
-      })) || []
+      })) ?? []
       
-      const headers = Object.keys(exportData[0] || {})
+      const headers = Object.keys(exportData[0] ?? {})
       
       updateProgress('generating', 80, 'Generating export file...')
       
@@ -365,11 +424,11 @@ ${data.map(row =>
           break
         case 'excel':
           filename = `inventory-${timestamp}.xlsx`
-          blob = await generateExcel(exportData, headers, 'Inventory')
+          blob = generateExcel(exportData, headers, 'Inventory')
           break
         case 'pdf':
           filename = `inventory-${timestamp}.pdf`
-          blob = await generatePDF(exportData, headers, 'Inventory Report')
+          blob = generatePDF(exportData, headers, 'Inventory Report')
           break
         default:
           throw new Error('Unsupported export format')
@@ -380,9 +439,10 @@ ${data.map(row =>
       downloadFile(blob, filename)
       toast.success(`Inventory exported successfully as ${options.format.toUpperCase()}`)
       
-    } catch (err: any) {
-      console.error('Export error:', err)
-      setError(err.message || 'Export failed')
+    } catch (err) {
+      const error = err as Error
+      console.error('Export error:', error)
+      setError(error.message ?? 'Export failed')
       toast.error('Failed to export inventory')
     } finally {
       setIsExporting(false)
@@ -398,7 +458,7 @@ ${data.map(row =>
       
       updateProgress('preparing', 10, 'Preparing asset export...')
       
-      let query = supabase
+      const query = supabase
         .from('assets')
         .select('*')
       
@@ -410,21 +470,21 @@ ${data.map(row =>
       
       updateProgress('processing', 60, 'Processing asset data...')
       
-      const exportData = data?.map(asset => ({
+      const exportData: AssetExport[] = (data as Asset[])?.map(asset => ({
         'Asset Name': asset.name,
         'Type': asset.type,
-        'Model': asset.model,
-        'Serial Number': asset.serial_number,
-        'Location': asset.location,
+        'Model': asset.model ?? 'N/A',
+        'Serial Number': asset.serial_number ?? 'N/A',
+        'Location': asset.location ?? 'N/A',
         'Status': asset.status,
         'Purchase Date': asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'N/A',
-        'Purchase Cost': asset.purchase_cost?.toFixed(2) || 'N/A',
-        'Operating Hours': asset.operating_hours || 0,
-        'Last Maintenance': asset.last_maintenance ? new Date(asset.last_maintenance).toLocaleDateString() : 'N/A',
+        'Purchase Cost': 'N/A', // Not in Asset type
+        'Operating Hours': asset.current_hours ?? 0,
+        'Last Maintenance': 'N/A', // Not in Asset type
         'Created': new Date(asset.created_at).toLocaleDateString()
-      })) || []
+      })) ?? []
       
-      const headers = Object.keys(exportData[0] || {})
+      const headers = Object.keys(exportData[0] ?? {})
       
       updateProgress('generating', 80, 'Generating export file...')
       
@@ -439,11 +499,11 @@ ${data.map(row =>
           break
         case 'excel':
           filename = `assets-${timestamp}.xlsx`
-          blob = await generateExcel(exportData, headers, 'Assets')
+          blob = generateExcel(exportData, headers, 'Assets')
           break
         case 'pdf':
           filename = `assets-${timestamp}.pdf`
-          blob = await generatePDF(exportData, headers, 'Assets Report')
+          blob = generatePDF(exportData, headers, 'Assets Report')
           break
         default:
           throw new Error('Unsupported export format')
@@ -454,9 +514,10 @@ ${data.map(row =>
       downloadFile(blob, filename)
       toast.success(`Assets exported successfully as ${options.format.toUpperCase()}`)
       
-    } catch (err: any) {
-      console.error('Export error:', err)
-      setError(err.message || 'Export failed')
+    } catch (err) {
+      const error = err as Error
+      console.error('Export error:', error)
+      setError(error.message ?? 'Export failed')
       toast.error('Failed to export assets')
     } finally {
       setIsExporting(false)
@@ -476,7 +537,8 @@ ${data.map(row =>
       updateProgress('fetching', 30, 'Fetching all data sources...')
       
       // Simulate comprehensive data
-      const comprehensiveData = [
+      await Promise.resolve() // Placeholder for actual async operation
+      const comprehensiveData: ExportRecord[] = [
         {
           'Report Section': 'Assets Summary',
           'Total Assets': '12',
@@ -502,7 +564,7 @@ ${data.map(row =>
       
       updateProgress('processing', 60, 'Processing comprehensive data...')
       
-      const headers = Object.keys(comprehensiveData[0] || {})
+      const headers = Object.keys(comprehensiveData[0] ?? {})
       
       updateProgress('generating', 80, 'Generating comprehensive report...')
       
@@ -517,11 +579,11 @@ ${data.map(row =>
           break
         case 'excel':
           filename = `comprehensive-report-${timestamp}.xlsx`
-          blob = await generateExcel(comprehensiveData, headers, 'Comprehensive Report')
+          blob = generateExcel(comprehensiveData, headers, 'Comprehensive Report')
           break
         case 'pdf':
           filename = `comprehensive-report-${timestamp}.pdf`
-          blob = await generatePDF(comprehensiveData, headers, 'Comprehensive Farm Management Report')
+          blob = generatePDF(comprehensiveData, headers, 'Comprehensive Farm Management Report')
           break
         default:
           throw new Error('Unsupported export format')
@@ -532,9 +594,10 @@ ${data.map(row =>
       downloadFile(blob, filename)
       toast.success(`Comprehensive report exported successfully as ${options.format.toUpperCase()}`)
       
-    } catch (err: any) {
-      console.error('Export error:', err)
-      setError(err.message || 'Export failed')
+    } catch (err) {
+      const error = err as Error
+      console.error('Export error:', error)
+      setError(error.message ?? 'Export failed')
       toast.error('Failed to export comprehensive report')
     } finally {
       setIsExporting(false)

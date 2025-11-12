@@ -1,90 +1,89 @@
-
-import React, { useState, useEffect } from 'react'
-import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime'
-import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
-import { TABLES, type JobCard } from '../lib/supabase'
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
-import { Users, Clock, MapPin, AlertCircle, Plus } from 'lucide-react'
-import { motion } from 'framer-motion'
-import toast from 'react-hot-toast'
+import { AlertCircle, Clock, MapPin, Plus, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { DragDropContext, Draggable, Droppable, DropResult } from 'react-beautiful-dnd';
+import toast from 'react-hot-toast';
+import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
+import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime';
+import { TABLES, type JobCard } from '../lib/supabase';
 
 const columns = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
   { id: 'in_progress', title: 'In Progress', color: 'bg-blue-100' },
   { id: 'review', title: 'Review', color: 'bg-yellow-100' },
-  { id: 'completed', title: 'Completed', color: 'bg-green-100' }
-]
+  { id: 'completed', title: 'Completed', color: 'bg-green-100' },
+];
 
 export const CollaborativeJobBoard: React.FC = () => {
-  const [activeUsers, setActiveUsers] = useState<string[]>([])
-  const [selectedJob, setSelectedJob] = useState<JobCard | null>(null)
+  const [activeUsers, setActiveUsers] = useState<string[]>([]);
+  const [selectedJob, setSelectedJob] = useState<JobCard | null>(null);
 
-  const { data: jobs, loading } = useSupabaseRealtime<JobCard>({
+  const { data: jobs, loading } = useSupabaseRealtime<JobCard & { [key: string]: unknown }>({
     table: TABLES.JOB_CARDS,
     onInsert: (payload) => {
-      toast.success(`🆕 New job added: ${payload.new.title}`, {
-        duration: 4000,
-        icon: '👷'
-      })
+      if (payload.new) {
+        toast.success(`🆕 New job added: ${payload.new.title}`, {
+          duration: 4000,
+          icon: '👷',
+        });
+      }
     },
     onUpdate: (payload) => {
-      const oldStatus = payload.old.status
-      const newStatus = payload.new.status
-      const jobTitle = payload.new.title
+      if (payload.old && payload.new) {
+        const oldStatus = payload.old.status;
+        const newStatus = payload.new.status;
+        const jobTitle = payload.new.title;
 
-      if (oldStatus !== newStatus) {
-        toast.success(`📋 ${jobTitle} moved to ${newStatus.replace('_', ' ')}`, {
-          duration: 3000,
-          icon: '🔄'
-        })
+        if (oldStatus !== newStatus) {
+          toast.success(`📋 ${jobTitle} moved to ${newStatus.replace('_', ' ')}`, {
+            duration: 3000,
+            icon: '🔄',
+          });
+        }
       }
     }
-  })
+  });
 
-  const { update } = useSupabaseCRUD({
-    table: TABLES.JOB_CARDS
-  })
+  const { update } = useSupabaseCRUD<JobCard>('jobs');
 
   // Simulate active users (in real implementation, track via presence)
   useEffect(() => {
-    const users = ['John Smith', 'Sarah Wilson', 'Mike Johnson', 'David Brown']
-    setActiveUsers(users.slice(0, Math.floor(Math.random() * 4) + 1))
-  }, [])
+    const users = ['John Smith', 'Sarah Wilson', 'Mike Johnson', 'David Brown'];
+    setActiveUsers(users.slice(0, Math.floor(Math.random() * 4) + 1));
+  }, []);
 
-  const handleDragEnd = async (result: any) => {
-    if (!result.destination) return
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
 
-    const { draggableId, destination } = result
-    const job = jobs.find(j => j.id === draggableId)
+    const { draggableId, destination } = result;
+    const job = jobs.find(j => j.id === draggableId);
     
-    if (!job || job.status === destination.droppableId) return
+    if (!job || job.status === destination.droppableId) return;
 
     try {
       await update(draggableId, {
-        status: destination.droppableId,
-        updated_at: new Date().toISOString()
-      })
-    } catch (error) {
-      toast.error('Failed to update job status')
+        status: destination.droppableId as JobCard['status']
+      });
+    } catch {
+      toast.error('Failed to update job status');
     }
-  }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'low': return 'text-green-600 bg-green-100'
-      case 'medium': return 'text-yellow-600 bg-yellow-100'
-      case 'high': return 'text-red-600 bg-red-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'low': return 'text-green-600 bg-green-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'high': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
     }
-  }
+  };
 
   const isOverdue = (dueDate: string) => {
-    return new Date(dueDate) < new Date()
-  }
+    return new Date(dueDate) < new Date();
+  };
 
   const getJobsByStatus = (status: string) => {
-    return jobs.filter(job => job.status === status)
-  }
+    return jobs.filter(job => job.status === status);
+  };
 
   if (loading) {
     return (
@@ -92,7 +91,7 @@ export const CollaborativeJobBoard: React.FC = () => {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         <span className="ml-3 text-gray-600">Loading collaborative job board...</span>
       </div>
-    )
+    );
   }
 
   return (
@@ -109,7 +108,7 @@ export const CollaborativeJobBoard: React.FC = () => {
             <Users className="h-5 w-5 text-gray-500" />
             <span className="text-sm text-gray-600">Active now:</span>
             <div className="flex -space-x-2">
-              {activeUsers.map((user, index) => (
+              {activeUsers.map((user) => (
                 <div
                   key={user}
                   className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium border-2 border-white"
@@ -143,7 +142,7 @@ export const CollaborativeJobBoard: React.FC = () => {
       </div>
 
       {/* Kanban Board */}
-      <DragDropContext onDragEnd={handleDragEnd}>
+      <DragDropContext onDragEnd={(result) => { void handleDragEnd(result) }}>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {columns.map(column => (
             <div key={column.id} className={`rounded-lg ${column.color} p-4`}>
@@ -166,12 +165,11 @@ export const CollaborativeJobBoard: React.FC = () => {
                     {getJobsByStatus(column.id).map((job, index) => (
                       <Draggable key={job.id} draggableId={job.id} index={index}>
                         {(provided, snapshot) => (
-                          <motion.div
+                          <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
+                            style={provided.draggableProps.style}
                             className={`bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-pointer ${
                               snapshot.isDragging ? 'rotate-3 shadow-lg' : ''
                             }`}
@@ -239,7 +237,7 @@ export const CollaborativeJobBoard: React.FC = () => {
                                 </div>
                               </div>
                             </div>
-                          </motion.div>
+                          </div>
                         )}
                       </Draggable>
                     ))}
@@ -322,7 +320,7 @@ export const CollaborativeJobBoard: React.FC = () => {
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default CollaborativeJobBoard
+export default CollaborativeJobBoard;

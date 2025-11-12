@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react'
-import {Calendar, Plus, Search, AlertTriangle, Clock, Wrench, TrendingUp} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { Plus, Search, TrendingUp } from 'lucide-react'
+import { useState } from 'react'
 import MaintenanceCalendar from '../components/MaintenanceCalendar'
 
 const mockMaintenanceItems = [

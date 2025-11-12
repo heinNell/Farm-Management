@@ -1,5 +1,4 @@
 
-import React from 'react'
 import {TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Package, Wrench, Calendar, BarChart3, Activity} from 'lucide-react'
 import { motion } from 'framer-motion'
 

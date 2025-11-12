@@ -1,15 +1,15 @@
 
-import React, { useState } from 'react'
-import {Search, Plus, Scan, Filter, Package, AlertTriangle, CheckCircle, Edit, Trash2} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { AlertTriangle, CheckCircle, Edit, Package, Plus, Scan, Search, Trash2 } from 'lucide-react'
+import React, { useState } from 'react'
 import ScanModal from '../components/ScanModal'
-import InventoryModal from '../components/modals/InventoryModal'
 import ConfirmationModal from '../components/modals/ConfirmationModal'
+import InventoryModal from '../components/modals/InventoryModal'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { ToastContainer } from '../components/ui/Toast'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import { useToast } from '../hooks/useToast'
-import { InventoryItem, InventoryFormData } from '../types/database'
+import { InventoryFormData, InventoryItem } from '../types/database'
 
 export default function EnhancedInventory() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -32,8 +32,7 @@ export default function EnhancedInventory() {
     create,
     update,
     delete: deleteItem,
-    search,
-    filter
+    search
   } = useSupabaseCRUD<InventoryItem>('inventory')
 
   // Filter and search items
@@ -65,13 +64,13 @@ export default function EnhancedInventory() {
   }, [inventoryItems])
 
   const handleCreateItem = async (data: InventoryFormData) => {
-    await create(data)
+    await create(buildInventoryPayload(data))
     setShowInventoryModal(false)
   }
 
   const handleUpdateItem = async (data: InventoryFormData) => {
     if (selectedItem) {
-      await update(selectedItem.id, data)
+      await update(selectedItem.id, buildInventoryPayload(data))
       setShowInventoryModal(false)
       setSelectedItem(null)
     }
@@ -119,8 +118,23 @@ export default function EnhancedInventory() {
   }
 
   const getStockPercentage = (item: InventoryItem) => {
+    if (!item.max_stock) {
+      return 0
+    }
     return Math.min((item.current_stock / item.max_stock) * 100, 100)
   }
+
+  const computeInventoryStatus = (current: number, minimum: number): InventoryItem['status'] => {
+    if (current <= 0) return 'out_of_stock'
+    if (current <= minimum) return 'low_stock'
+    return 'in_stock'
+  }
+
+  const buildInventoryPayload = (data: InventoryFormData): Omit<InventoryItem, 'id' | 'created_at' | 'updated_at'> => ({
+    ...data,
+    status: computeInventoryStatus(data.current_stock, data.min_stock),
+    last_updated: new Date().toISOString()
+  })
 
   if (loading) {
     return (

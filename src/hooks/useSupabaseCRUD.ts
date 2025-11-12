@@ -1,5 +1,5 @@
-
-import { useState, useEffect, useCallback } from 'react'
+import type { PostgrestError } from '@supabase/supabase-js'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase, TABLES } from '../lib/supabase'
 import { EntityType } from '../types/database'
 import { useToast } from './useToast'
@@ -54,7 +54,7 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
 
       setState(prev => ({
         ...prev,
-        items: data || [],
+        items: (data as T[]) || [],
         loading: false
       }))
     } catch (error) {
@@ -77,13 +77,13 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
         .from(tableName)
         .insert([data])
         .select()
-        .single()
+        .single() as { data: T | null; error: PostgrestError | null }
 
       if (error) throw error
 
       setState(prev => ({
         ...prev,
-        items: [newItem, ...prev.items],
+        items: [newItem as T, ...prev.items],
         creating: false
       }))
 
@@ -111,14 +111,14 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
         .update({ ...data, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
-        .single()
+        .single() as { data: T | null; error: PostgrestError | null }
 
       if (error) throw error
 
       setState(prev => ({
         ...prev,
         items: prev.items.map(item => 
-          item.id === id ? updatedItem : item
+          item.id === id ? updatedItem as T : item
         ),
         updating: false
       }))
@@ -199,7 +199,7 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
 
   // Set up real-time subscription
   useEffect(() => {
-    fetchItems()
+    void fetchItems()
 
     if (realtime) {
       const subscription = supabase
@@ -220,14 +220,14 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
               setState(prev => ({
                 ...prev,
                 items: prev.items.map(item =>
-                  item.id === payload.new.id ? payload.new as T : item
+                  item.id === (payload.new as T).id ? payload.new as T : item
                 )
               }))
               break
             case 'DELETE':
               setState(prev => ({
                 ...prev,
-                items: prev.items.filter(item => item.id !== payload.old.id)
+                items: prev.items.filter(item => item.id !== (payload.old as T).id)
               }))
               break
           }
@@ -235,7 +235,7 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
         .subscribe()
 
       return () => {
-        subscription.unsubscribe()
+        void subscription.unsubscribe()
       }
     }
   }, [fetchItems, tableName, realtime])

@@ -29,7 +29,7 @@ export default function FormField({
         id={name}
         name={name}
         type={type}
-        value={value || ''}
+        value={value ?? ''}
         onChange={handleChange}
         placeholder={placeholder}
         required={required}

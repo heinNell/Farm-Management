@@ -1,6 +1,6 @@
 
+import { ChevronDown } from 'lucide-react'
 import React from 'react'
-import {ChevronDown} from 'lucide-react'
 
 interface FormSelectProps {
   label: string
@@ -10,7 +10,7 @@ interface FormSelectProps {
   options: { value: string; label: string }[]
   placeholder?: string
   required?: boolean
-  error?: string
+  error?: string | undefined
   className?: string
 }
 

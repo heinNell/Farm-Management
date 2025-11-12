@@ -1,4 +1,5 @@
 
+import type { ReactNode } from 'react'
 export interface InventoryItem {
   id: string
   sku: string
@@ -13,6 +14,17 @@ export interface InventoryItem {
   last_updated: string
   created_at: string
   updated_at: string
+}
+
+export interface InventoryFormData {
+  sku: string
+  name: string
+  category: string
+  current_stock: number
+  min_stock: number
+  max_stock: number
+  unit: string
+  location: string
 }
 
 export interface RepairItem {
@@ -31,6 +43,17 @@ export interface RepairItem {
   updated_at: string
 }
 
+export interface RepairFormData {
+  equipment_name: string
+  defect_tag: string
+  priority: 'low' | 'medium' | 'high'
+  description: string
+  estimated_cost: number
+  assigned_technician: string
+  warranty_status: 'in_warranty' | 'out_of_warranty' | 'extended'
+  estimated_completion: string
+}
+
 export interface JobCard {
   id: string
   title: string
@@ -44,6 +67,17 @@ export interface JobCard {
   tags: string[]
   created_at: string
   updated_at: string
+}
+
+export interface JobFormData {
+  title: string
+  description: string
+  priority: 'low' | 'medium' | 'high'
+  assigned_to: string
+  location: string
+  estimated_hours: number
+  due_date: string
+  tags: string[]
 }
 
 export interface Inspection {
@@ -92,8 +126,8 @@ export interface FormFieldProps {
   type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local'
   placeholder?: string
   required?: boolean
-  error?: string
-  value?: string | number
+  error?: string | undefined
+  value?: string | number | undefined
   onChange?: (value: string | number) => void
   className?: string
 }
@@ -101,6 +135,6 @@ export interface FormFieldProps {
 export interface ModalProps {
   isOpen: boolean
   onClose: () => void
-  title: string
+  title: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }

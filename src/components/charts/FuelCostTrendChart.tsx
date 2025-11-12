@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ComposedChart, Bar } from 'recharts'
-import {TrendingUp, TrendingDown, DollarSign, AlertCircle} from 'lucide-react'
+import { AlertCircle, DollarSign, TrendingDown, TrendingUp } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { Area, AreaChart, Bar, CartesianGrid, ComposedChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 interface FuelPrice {
   id: string
@@ -57,6 +57,14 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
       .sort((a, b) => new Date(a.effective_date).getTime() - new Date(b.effective_date).getTime())
 
     // Group by date and fuel type
+    interface TrendGroup {
+      date: string
+      fuel_type: string
+      price: number
+      location?: string | undefined
+      supplier?: string | undefined
+    }
+
     const grouped = filteredData.reduce((acc, record) => {
       const key = `${record.effective_date}-${record.fuel_type}`
       if (!acc[key]) {
@@ -64,24 +72,31 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
           date: record.effective_date,
           fuel_type: record.fuel_type,
           price: record.price_per_liter,
-          location: record.location,
-          supplier: record.supplier
+          location: record.location || undefined,
+          supplier: record.supplier || undefined
         }
       }
       return acc
-    }, {} as Record<string, any>)
+    }, {} as Record<string, TrendGroup>)
 
     return Object.values(grouped)
   }, [priceData, selectedFuelType, timeRange])
 
-  // Process cost analysis data (combining price and consumption)
+    // Process cost analysis data (combining price and consumption)
   const costAnalysisData = useMemo(() => {
     if (viewType !== 'cost_analysis' || !consumptionData || !priceData) return []
 
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - timeRange)
 
-    // Group consumption by month
+    interface MonthlyData {
+      month: string
+      totalQuantity: number
+      totalCost: number
+      avgPrice: number
+      records: Array<{ date: string; quantity: number; cost: number }>
+    }
+
     const monthlyData = consumptionData
       .filter(record => {
         const recordDate = new Date(record.date)
@@ -99,15 +114,18 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
           }
         }
         
-        acc[month].totalQuantity += record.quantity
-        acc[month].totalCost += record.cost
-        acc[month].records.push(record)
+        const monthData = acc[month]
+        if (monthData) {
+          monthData.totalQuantity += record.quantity
+          monthData.totalCost += record.cost
+          monthData.records.push(record)
+        }
         
         return acc
-      }, {} as Record<string, any>)
+      }, {} as Record<string, MonthlyData>)
 
     return Object.values(monthlyData)
-      .map((item: any) => ({
+      .map((item) => ({
         ...item,
         avgPrice: item.totalCost / item.totalQuantity,
         costPerRecord: item.totalCost / item.records.length
@@ -118,6 +136,15 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
   // Process supplier comparison data
   const supplierComparisonData = useMemo(() => {
     if (viewType !== 'supplier_comparison') return []
+
+    interface SupplierData {
+      supplier: string
+      prices: number[]
+      avgPrice: number
+      minPrice: number
+      maxPrice: number
+      recordCount: number
+    }
 
     const supplierData = priceData.reduce((acc, record) => {
       const supplier = record.supplier || 'Unknown'
@@ -132,16 +159,19 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
         }
       }
       
-      acc[supplier].prices.push(record.price_per_liter)
-      acc[supplier].minPrice = Math.min(acc[supplier].minPrice, record.price_per_liter)
-      acc[supplier].maxPrice = Math.max(acc[supplier].maxPrice, record.price_per_liter)
-      acc[supplier].recordCount += 1
+      const supplierInfo = acc[supplier]
+      if (supplierInfo) {
+        supplierInfo.prices.push(record.price_per_liter)
+        supplierInfo.minPrice = Math.min(supplierInfo.minPrice, record.price_per_liter)
+        supplierInfo.maxPrice = Math.max(supplierInfo.maxPrice, record.price_per_liter)
+        supplierInfo.recordCount += 1
+      }
       
       return acc
-    }, {} as Record<string, any>)
+    }, {} as Record<string, SupplierData>)
 
     return Object.values(supplierData)
-      .map((item: any) => ({
+      .map((item) => ({
         ...item,
         avgPrice: item.prices.reduce((sum: number, price: number) => sum + price, 0) / item.prices.length,
         priceRange: item.maxPrice - item.minPrice
@@ -163,7 +193,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
     
     const sumX = xValues.reduce((sum, x) => sum + x, 0)
     const sumY = yValues.reduce((sum, y) => sum + y, 0)
-    const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0)
+    const sumXY = xValues.reduce((sum, x, i) => sum + x * (yValues[i] || 0), 0)
     const sumXX = xValues.reduce((sum, x) => sum + x * x, 0)
     
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
@@ -171,7 +201,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
     
     // Generate forecast for next 30 days
     const forecastPoints = []
-    const lastDate = new Date(recentData[recentData.length - 1].date)
+    const lastDate = new Date(recentData[recentData.length - 1]?.date || new Date())
     
     for (let i = 1; i <= 30; i++) {
       const futureDate = new Date(lastDate)
@@ -206,10 +236,10 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
     const recent = priceTrendData.slice(-7) // Last 7 data points
     if (recent.length < 2) return { trend: 'stable', change: 0, changePercent: 0 }
 
-    const firstPrice = recent[0].price
-    const lastPrice = recent[recent.length - 1].price
+    const firstPrice = recent[0]?.price || 0
+    const lastPrice = recent[recent.length - 1]?.price || 0
     const change = lastPrice - firstPrice
-    const changePercent = (change / firstPrice) * 100
+    const changePercent = firstPrice !== 0 ? (change / firstPrice) * 100 : 0
 
     let trend = 'stable'
     if (Math.abs(changePercent) > 5) {
@@ -219,17 +249,30 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
     return { trend, change, changePercent }
   }, [priceTrendData])
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  interface TooltipPayloadEntry {
+    name: string
+    value: number
+    color: string
+    payload: Record<string, unknown>
+  }
+
+  interface CustomTooltipProps {
+    active?: boolean
+    payload?: TooltipPayloadEntry[]
+    label?: string | number
+  }
+
+  const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
     if (!active || !payload || payload.length === 0) return null
 
-    const data = payload[0].payload
+    const data = payload[0]?.payload as Record<string, unknown>
     
     return (
       <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
         <p className="font-semibold text-gray-900">
-          {new Date(label).toLocaleDateString()}
+          {label ? new Date(String(label)).toLocaleDateString() : ''}
         </p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index) => (
           <div key={index}>
             <p style={{ color: entry.color }}>
               {entry.name}: <span className="font-bold">
@@ -241,10 +284,10 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
             </p>
           </div>
         ))}
-        {data.supplier && (
+        {data && typeof data.supplier === 'string' && (
           <p className="text-sm text-gray-600">Supplier: {data.supplier}</p>
         )}
-        {data.isForecast && (
+        {data && data.isForecast === true && typeof data.confidence === 'number' && (
           <p className="text-sm text-orange-600">
             Forecast (Confidence: {(data.confidence * 100).toFixed(0)}%)
           </p>
@@ -261,7 +304,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="date" 
-              tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              tickFormatter={(date: unknown) => new Date(String(date)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             />
             <YAxis 
               label={{ value: 'Price (¥/L)', angle: -90, position: 'insideLeft' }}
@@ -284,8 +327,9 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="month" 
-              tickFormatter={(month) => {
+              tickFormatter={(month: string) => {
                 const [year, monthNum] = month.split('-')
+                if (!year || !monthNum) return month
                 return new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('en-US', { 
                   year: '2-digit', 
                   month: 'short' 
@@ -295,8 +339,9 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
             <YAxis yAxisId="left" label={{ value: 'Quantity (L)', angle: -90, position: 'insideLeft' }} />
             <YAxis yAxisId="right" orientation="right" label={{ value: 'Cost (¥)', angle: 90, position: 'insideRight' }} />
             <Tooltip 
-              labelFormatter={(month) => {
+              labelFormatter={(month: string) => {
                 const [year, monthNum] = month.split('-')
+                if (!year || !monthNum) return month
                 return new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('en-US', { 
                   year: 'numeric', 
                   month: 'long' 
@@ -322,11 +367,14 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
               dataKey="supplier" 
               type="category" 
               width={100}
-              tickFormatter={(name) => name.length > 12 ? `${name.slice(0, 10)}...` : name}
+              tickFormatter={(name: unknown) => {
+                const str = String(name)
+                return str.length > 12 ? `${str.slice(0, 10)}...` : str
+              }}
             />
             <Tooltip 
               formatter={(value: number, name: string) => [`¥${value.toFixed(2)}`, name]}
-              labelFormatter={(supplier) => `Supplier: ${supplier}`}
+              labelFormatter={(supplier: unknown) => `Supplier: ${String(supplier)}`}
             />
             <Line dataKey="avgPrice" stroke="#8884d8" strokeWidth={3} name="Avg Price" />
             <Line dataKey="minPrice" stroke="#82ca9d" strokeWidth={2} name="Min Price" />
@@ -340,7 +388,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="date" 
-              tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              tickFormatter={(date: unknown) => new Date(String(date)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             />
             <YAxis label={{ value: 'Price (¥/L)', angle: -90, position: 'insideLeft' }} />
             <Tooltip content={<CustomTooltip />} />
@@ -366,7 +414,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
         )
 
       default:
-        return null
+        return <div className="text-center text-gray-500 py-8">Select a view type</div>
     }
   }
 

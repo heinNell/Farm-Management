@@ -1,10 +1,9 @@
-
-import React, { useState } from 'react'
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAuthContext } from './auth/AuthProvider'
-import { usePermissions } from './auth/RoleGuard'
-import {LayoutDashboard, Package, Wrench, ClipboardCheck, Calendar, Settings, Menu, X, Fuel, Shield, Crown, UserCheck} from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Calendar, ClipboardCheck, Crown, Fuel, LayoutDashboard, Menu, Package, Settings, Shield, UserCheck, Wrench, X } from 'lucide-react'
+import { useState } from 'react'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import { usePermissions } from '../hooks/usePermissions'
+import { useAuthContext } from './auth/AuthContext'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiredRole: null },
@@ -21,7 +20,10 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const { user, userRole } = useAuthContext()
-  const { isAdmin } = usePermissions()
+  const permissions = usePermissions()
+
+  // Call isAdmin() to get the boolean value
+  const isUserAdmin = permissions.isAdmin()
 
   // Filter navigation based on role
   const filteredNavigation = navigation.filter(item => {
@@ -69,9 +71,9 @@ export default function Layout() {
       <div className="px-4 py-4 bg-gray-50 border-b border-gray-200">
         <div className="flex items-center space-x-3">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-            isAdmin ? 'bg-red-100' : 'bg-blue-100'
+            isUserAdmin ? 'bg-red-100' : 'bg-blue-100'
           }`}>
-            {isAdmin ? (
+            {isUserAdmin ? (
               <Crown className="h-5 w-5 text-red-600" />
             ) : (
               <UserCheck className="h-5 w-5 text-blue-600" />
@@ -79,12 +81,12 @@ export default function Layout() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
-              {user?.userName}
+              {user?.email?.split('@')[0] ?? 'Guest'}
             </p>
             <p className={`text-xs truncate ${
-              isAdmin ? 'text-red-600' : 'text-blue-600'
+              isUserAdmin ? 'text-red-600' : 'text-blue-600'
             }`}>
-              {userRole} Access
+              {userRole ?? 'USER'} Access
             </p>
           </div>
         </div>
@@ -100,7 +102,7 @@ export default function Layout() {
       {/* Footer */}
       <div className="px-4 py-4 border-t border-gray-200">
         <div className="text-xs text-gray-500 text-center">
-          <p>Secured by Lumi Platform</p>
+          <p>Secured by Supabase</p>
           <p className="mt-1">© 2024 Farm Management System</p>
         </div>
       </div>
@@ -165,12 +167,12 @@ export default function Layout() {
             
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-900">
-                {user?.userName}
+                {user?.email?.split('@')[0] ?? 'Guest'}
               </span>
               <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                isAdmin ? 'bg-red-100' : 'bg-blue-100'
+                isUserAdmin ? 'bg-red-100' : 'bg-blue-100'
               }`}>
-                {isAdmin ? (
+                {isUserAdmin ? (
                   <Crown className="h-3 w-3 text-red-600" />
                 ) : (
                   <UserCheck className="h-3 w-3 text-blue-600" />

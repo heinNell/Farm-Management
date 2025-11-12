@@ -1,34 +1,49 @@
-
-import { useSupabaseRealtime } from './useSupabaseRealtime'
-import { useSupabaseCRUD } from './useSupabaseCRUD'
-import { TABLES, type InventoryItem } from '../lib/supabase'
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { TABLES, type InventoryItem } from '../lib/supabase'
+import { useSupabaseCRUD } from './useSupabaseCRUD'
+import { useSupabaseRealtime } from './useSupabaseRealtime'
+
+// Extend InventoryItem to satisfy DatabaseRecord constraint
+interface ExtendedInventoryItem extends InventoryItem {
+  [key: string]: unknown; // Index signature to satisfy DatabaseRecord constraint
+}
 
 export function useRealtimeInventory() {
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([])
   const [outOfStockItems, setOutOfStockItems] = useState<InventoryItem[]>([])
 
-  const { data: inventoryItems, loading, error, refetch } = useSupabaseRealtime<InventoryItem>({
+  const { data: inventoryItems, loading, error, refetch } = useSupabaseRealtime<ExtendedInventoryItem>({
     table: TABLES.INVENTORY_ITEMS,
     onInsert: (payload) => {
-      checkStockLevels(payload.new)
+      if (payload.new) {
+        checkStockLevels(payload.new as InventoryItem)
+      }
     },
     onUpdate: (payload) => {
-      checkStockLevels(payload.new)
+      if (payload.new) {
+        checkStockLevels(payload.new as InventoryItem)
+      }
     }
   })
 
-  const { create, update, remove, loading: crudLoading } = useSupabaseCRUD({
-    table: TABLES.INVENTORY_ITEMS
-  })
+  const { create, update, delete: deleteItem, loading: crudLoading } = useSupabaseCRUD<InventoryItem>('inventory')
 
   // Check stock levels and trigger alerts
   const checkStockLevels = useCallback((item: InventoryItem) => {
     if (item.current_stock === 0) {
       toast.error(`⚠️ ${item.name} is out of stock!`, { duration: 6000 })
     } else if (item.current_stock <= item.min_stock) {
-      toast.warning(`📦 ${item.name} is running low (${item.current_stock} ${item.unit} left)`, { duration: 4000 })
+      // Use toast() with custom styling instead of toast.warning()
+      toast(`📦 ${item.name} is running low (${item.current_stock} ${item.unit || 'units'} left)`, {
+        duration: 4000,
+        icon: '⚠️',
+        style: {
+          background: '#FEF3C7',
+          color: '#92400E',
+          border: '1px solid #F59E0B'
+        }
+      })
     }
   }, [])
 
@@ -55,11 +70,14 @@ export function useRealtimeInventory() {
       status = 'low_stock'
     }
 
-    return await update(itemId, {
+    // Create a properly typed update object
+    const updateData: Partial<InventoryItem> = {
       current_stock: newStock,
       status,
       last_updated: new Date().toISOString()
-    })
+    }
+
+    return await update(itemId, updateData)
   }, [inventoryItems, update])
 
   // Bulk stock update
@@ -77,11 +95,13 @@ export function useRealtimeInventory() {
       status = 'low_stock'
     }
 
-    return await create({
+    const newItemData: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at'> = {
       ...itemData,
       status,
       last_updated: new Date().toISOString()
-    })
+    }
+
+    return await create(newItemData)
   }, [create])
 
   // Search and filter functions
@@ -105,22 +125,41 @@ export function useRealtimeInventory() {
     return inventoryItems.filter(item => item.status === status)
   }, [inventoryItems])
 
+  // Safe error handling
+  const safeError = (() => {
+    const err = error as unknown
+    if (!err) return null
+    if (err instanceof Error) return err.message
+    if (typeof err === 'string') return err
+    if (typeof err === 'object' && err !== null && 'message' in err) {
+      const errObj = err as { message: unknown }
+      if (typeof errObj.message === 'string') {
+        return errObj.message
+      }
+    }
+    try {
+      return JSON.stringify(err)
+    } catch {
+      return 'An unknown error occurred'
+    }
+  })()
+
   return {
     // Data
-    inventoryItems,
+    inventoryItems: inventoryItems as InventoryItem[],
     lowStockItems,
     outOfStockItems,
     
     // Status
     loading: loading || crudLoading,
-    error,
+    error: safeError,
     
     // Operations
     addInventoryItem,
     updateStock,
     bulkUpdateStock,
     updateItem: update,
-    removeItem: remove,
+    removeItem: deleteItem, // Use delete instead of remove
     refetch,
     
     // Search & Filter

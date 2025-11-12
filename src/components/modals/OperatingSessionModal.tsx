@@ -1,12 +1,12 @@
 
+import { Clock, Edit, Plus, X } from 'lucide-react'
 import React, { useState } from 'react'
-import {X, Plus, Edit, Clock} from 'lucide-react'
-import { OperatingSession, Asset } from '../../types/fuel'
+import { Asset, OperatingSession } from '../../types/fuel'
 
 interface OperatingSessionModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (sessionData: Omit<OperatingSession, '_id'>) => Promise<void>
+  onSave: (sessionData: Omit<OperatingSession, 'id'>) => Promise<void>
   assets: Asset[]
   session?: OperatingSession | null
 }
@@ -20,15 +20,15 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     asset_id: session?.asset_id || '',
-    start_time: session?.start_time ? session.start_time.slice(0, 16) : '',
-    end_time: session?.end_time ? session.end_time.slice(0, 16) : '',
-    operating_hours: session?.operating_hours || 0,
-    task_type: session?.task_type || 'plowing',
-    operator: session?.operator || '',
-    fuel_consumed: session?.fuel_consumed || 0,
-    location: session?.location || '',
-    efficiency_rating: session?.efficiency_rating || 3,
-    notes: session?.notes || ''
+    session_start: session?.session_start ? session.session_start.slice(0, 16) : '',
+    session_end: session?.session_end ? session.session_end.slice(0, 16) : '',
+    operating_hours: session?.operating_hours || null,
+    fuel_consumed: session?.fuel_consumed || null,
+    initial_fuel_level: session?.initial_fuel_level || null,
+    final_fuel_level: session?.final_fuel_level || null,
+    distance_traveled: session?.distance_traveled || null,
+    efficiency_rating: session?.efficiency_rating || null,
+    operator_notes: session?.operator_notes || ''
   })
   
   const [loading, setLoading] = useState(false)
@@ -40,9 +40,10 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
     try {
       await onSave({
         ...formData,
-        start_time: new Date(formData.start_time).toISOString(),
-        end_time: new Date(formData.end_time).toISOString(),
-        created_at: session?.created_at || new Date().toISOString()
+        session_start: new Date(formData.session_start).toISOString(),
+        session_end: formData.session_end ? new Date(formData.session_end).toISOString() : null,
+        created_at: session?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       onClose()
     } catch (error) {
@@ -54,19 +55,19 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    let newValue: string | number = value
+    let newValue: string | number | null = value
     
-    if (['operating_hours', 'fuel_consumed', 'efficiency_rating'].includes(name)) {
-      newValue = Number(value) || 0
+    if (['operating_hours', 'fuel_consumed', 'initial_fuel_level', 'final_fuel_level', 'distance_traveled', 'efficiency_rating'].includes(name)) {
+      newValue = value ? Number(value) : null
     }
     
     setFormData(prev => {
       const updated = { ...prev, [name]: newValue }
       
       // Auto-calculate operating hours when start/end time changes
-      if ((name === 'start_time' || name === 'end_time') && updated.start_time && updated.end_time) {
-        const start = new Date(updated.start_time)
-        const end = new Date(updated.end_time)
+      if ((name === 'session_start' || name === 'session_end') && updated.session_start && updated.session_end) {
+        const start = new Date(updated.session_start)
+        const end = new Date(updated.session_end)
         if (end > start) {
           updated.operating_hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60) // Convert to hours
         }
@@ -76,7 +77,7 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
     })
   }
 
-  const selectedAsset = assets.find(asset => asset.asset_id === formData.asset_id)
+  const selectedAsset = assets.find(asset => asset.id === formData.asset_id)
 
   if (!isOpen) return null
 
@@ -101,7 +102,7 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e) }} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Asset *
@@ -115,8 +116,8 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
               >
                 <option value="">Select Asset</option>
                 {assets.map(asset => (
-                  <option key={asset.asset_id} value={asset.asset_id}>
-                    {asset.name} ({asset.asset_id})
+                  <option key={asset.id} value={asset.id}>
+                    {asset.name} ({asset.id})
                   </option>
                 ))}
               </select>
@@ -134,8 +135,8 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
                 </label>
                 <input
                   type="datetime-local"
-                  name="start_time"
-                  value={formData.start_time}
+                  name="session_start"
+                  value={formData.session_start}
                   onChange={handleChange}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -148,8 +149,8 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
                 </label>
                 <input
                   type="datetime-local"
-                  name="end_time"
-                  value={formData.end_time}
+                  name="session_end"
+                  value={formData.session_end}
                   onChange={handleChange}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -159,16 +160,15 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Operating Hours *
+                Operating Hours
               </label>
               <div className="relative">
                 <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="number"
                   name="operating_hours"
-                  value={formData.operating_hours}
+                  value={formData.operating_hours || ''}
                   onChange={handleChange}
-                  required
                   min="0"
                   step="0.1"
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -183,50 +183,13 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Task Type *
-                </label>
-                <select
-                  name="task_type"
-                  value={formData.task_type}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="plowing">Plowing</option>
-                  <option value="harvesting">Harvesting</option>
-                  <option value="transport">Transport</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Operator *
-                </label>
-                <input
-                  type="text"
-                  name="operator"
-                  value={formData.operator}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="John Smith"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fuel Consumed (L) *
+                  Fuel Consumed (L)
                 </label>
                 <input
                   type="number"
                   name="fuel_consumed"
-                  value={formData.fuel_consumed}
+                  value={formData.fuel_consumed || ''}
                   onChange={handleChange}
-                  required
                   min="0"
                   step="0.1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -236,45 +199,81 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Efficiency Rating (1-5) *
+                  Distance Traveled (km)
                 </label>
-                <select
-                  name="efficiency_rating"
-                  value={formData.efficiency_rating}
+                <input
+                  type="number"
+                  name="distance_traveled"
+                  value={formData.distance_traveled || ''}
                   onChange={handleChange}
-                  required
+                  min="0"
+                  step="0.1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value={1}>1 - Poor</option>
-                  <option value={2}>2 - Below Average</option>
-                  <option value={3}>3 - Average</option>
-                  <option value={4}>4 - Good</option>
-                  <option value={5}>5 - Excellent</option>
-                </select>
+                  placeholder="25.5"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Initial Fuel Level (L)
+                </label>
+                <input
+                  type="number"
+                  name="initial_fuel_level"
+                  value={formData.initial_fuel_level || ''}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="100.0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Final Fuel Level (L)
+                </label>
+                <input
+                  type="number"
+                  name="final_fuel_level"
+                  value={formData.final_fuel_level || ''}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="54.8"
+                />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location
+                Efficiency Rating (1-5)
               </label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location}
+              <select
+                name="efficiency_rating"
+                value={formData.efficiency_rating || ''}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Field A"
-              />
+              >
+                <option value="">Not Rated</option>
+                <option value={1}>1 - Poor</option>
+                <option value={2}>2 - Below Average</option>
+                <option value={3}>3 - Average</option>
+                <option value={4}>4 - Good</option>
+                <option value={5}>5 - Excellent</option>
+              </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
+                Operator Notes
               </label>
               <textarea
-                name="notes"
-                value={formData.notes}
+                name="operator_notes"
+                value={formData.operator_notes}
                 onChange={handleChange}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"

@@ -1,6 +1,5 @@
 
-import React from 'react'
-import { useAuthContext } from './AuthProvider'
+import { useAuthContext } from './AuthContext'
 
 interface RoleGuardProps {
   children: React.ReactNode
@@ -34,34 +33,4 @@ export default function RoleGuard({
   }
 
   return <>{children}</>
-}
-
-// Utility hook for permission checking
-export function usePermissions() {
-  const { isAuthenticated, userRole } = useAuthContext()
-
-  const hasRole = (role: 'ADMIN' | 'USER') => {
-    return isAuthenticated && userRole === role
-  }
-
-  const hasAnyRole = (roles: ('ADMIN' | 'USER')[]) => {
-    return isAuthenticated && userRole && roles.includes(userRole)
-  }
-
-  const isAdmin = () => hasRole('ADMIN')
-  const isUser = () => hasRole('USER')
-
-  return {
-    isAuthenticated,
-    userRole,
-    hasRole,
-    hasAnyRole,
-    isAdmin,
-    isUser,
-    canDelete: isAdmin(),
-    canModifyUsers: isAdmin(),
-    canAccessReports: isAdmin() || isUser(),
-    canModifySettings: isAdmin(),
-    canViewAuditLog: isAdmin()
-  }
 }

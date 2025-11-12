@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-=======
-
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
-import React, { useState, useRef, useCallback, useEffect } from 'react'
-import {Camera, Upload, Type, X, CheckCircle, AlertCircle} from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { AlertCircle, Camera, CheckCircle, Type, Upload, X } from 'lucide-react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 interface BarcodeScannerProps {
   isOpen: boolean
@@ -41,11 +37,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   // Initialize camera when scanner opens in camera mode
   useEffect(() => {
     if (isOpen && scanMode === 'camera') {
-<<<<<<< HEAD
       void initializeCamera()
-=======
-      initializeCamera()
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     }
     
     return () => {
@@ -71,11 +63,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-<<<<<<< HEAD
         void videoRef.current.play()
-=======
-        videoRef.current.play()
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
       }
     } catch (err) {
       console.error('Camera initialization failed:', err)
@@ -109,11 +97,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   }, [])
 
   // Simulate barcode/QR code detection (in real implementation, use a library like jsQR or QuaggaJS)
-<<<<<<< HEAD
   const processImage = useCallback((_imageData: string) => {
-=======
-  const processImage = useCallback((imageData: string) => {
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     // This is a simulation - replace with actual barcode/QR detection library
     const simulatedResults = [
       'ASSET-TRC-001',
@@ -126,12 +110,9 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     
     const randomResult = simulatedResults[Math.floor(Math.random() * simulatedResults.length)]
     
-<<<<<<< HEAD
     // Guard against undefined result
     if (!randomResult) return
-    
-=======
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
+
     // Simulate processing delay
     setTimeout(() => {
       setScanResult(randomResult)
@@ -386,8 +367,4 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   )
 }
 
-<<<<<<< HEAD
 export default BarcodeScanner
-=======
-export default BarcodeScanner
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc

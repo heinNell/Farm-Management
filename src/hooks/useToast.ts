@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react'
 import { Toast } from '../components/ui/Toast'
 
@@ -14,20 +13,20 @@ export const useToast = () => {
     setToasts(prev => prev.filter(toast => toast.id !== id))
   }, [])
 
-  const success = useCallback((title: string, message?: string) => {
-    addToast({ type: 'success', title, message })
+  const success = useCallback((title: string, message: string = '') => {
+    addToast({ type: 'success', title, message }) // Provide default empty string
   }, [addToast])
 
-  const error = useCallback((title: string, message?: string) => {
-    addToast({ type: 'error', title, message })
+  const error = useCallback((title: string, message: string = '') => {
+    addToast({ type: 'error', title, message }) // Provide default empty string
   }, [addToast])
 
-  const warning = useCallback((title: string, message?: string) => {
-    addToast({ type: 'warning', title, message })
+  const warning = useCallback((title: string, message: string = '') => {
+    addToast({ type: 'warning', title, message }) // Provide default empty string
   }, [addToast])
 
-  const info = useCallback((title: string, message?: string) => {
-    addToast({ type: 'info', title, message })
+  const info = useCallback((title: string, message: string = '') => {
+    addToast({ type: 'info', title, message }) // Provide default empty string
   }, [addToast])
 
   return {

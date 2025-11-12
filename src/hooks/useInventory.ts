@@ -1,5 +1,4 @@
-
-import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 interface InventoryItem {
@@ -14,6 +13,11 @@ interface InventoryItem {
   location: string
   lastUpdated: string
   status: string
+}
+
+interface QueueItem {
+  type: 'update' | 'create'
+  data: Partial<InventoryItem> | Omit<InventoryItem, 'id'>
 }
 
 // Mock API functions - replace with actual API calls
@@ -60,22 +64,25 @@ const createInventoryItem = async (item: Omit<InventoryItem, 'id'>): Promise<Inv
 
 export function useInventory() {
   const queryClient = useQueryClient()
-  const [offlineQueue, setOfflineQueue] = useState<any[]>([])
+  const [offlineQueue, setOfflineQueue] = useState<QueueItem[]>([])
 
   const {
     data: inventoryItems,
     isLoading,
     error
-  } = useQuery('inventory', fetchInventoryItems, {
+  } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: fetchInventoryItems,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 3,
   })
 
-  const updateItemMutation = useMutation(updateInventoryItem, {
+  const updateItemMutation = useMutation({
+    mutationFn: updateInventoryItem,
     onSuccess: () => {
-      queryClient.invalidateQueries('inventory')
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
     },
-    onError: (error, variables) => {
+    onError: (_error, variables) => {
       // Add to offline queue if network error
       if (!navigator.onLine) {
         setOfflineQueue(prev => [...prev, { type: 'update', data: variables }])
@@ -83,11 +90,12 @@ export function useInventory() {
     }
   })
 
-  const createItemMutation = useMutation(createInventoryItem, {
+  const createItemMutation = useMutation({
+    mutationFn: createInventoryItem,
     onSuccess: () => {
-      queryClient.invalidateQueries('inventory')
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
     },
-    onError: (error, variables) => {
+    onError: (_error, variables) => {
       // Add to offline queue if network error
       if (!navigator.onLine) {
         setOfflineQueue(prev => [...prev, { type: 'create', data: variables }])
@@ -100,16 +108,16 @@ export function useInventory() {
       for (const queueItem of offlineQueue) {
         try {
           if (queueItem.type === 'update') {
-            await updateInventoryItem(queueItem.data)
+            await updateInventoryItem(queueItem.data as Partial<InventoryItem>)
           } else if (queueItem.type === 'create') {
-            await createInventoryItem(queueItem.data)
+            await createInventoryItem(queueItem.data as Omit<InventoryItem, 'id'>)
           }
         } catch (error) {
           console.error('Failed to sync offline item:', error)
         }
       }
       setOfflineQueue([])
-      queryClient.invalidateQueries('inventory')
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
     }
   }
 

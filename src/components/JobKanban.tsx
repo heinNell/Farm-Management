@@ -1,7 +1,5 @@
-
-import React from 'react'
-import {Clock, MapPin, User, AlertTriangle} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { AlertTriangle, Clock, MapPin, User } from 'lucide-react'
 
 interface Job {
   id: string

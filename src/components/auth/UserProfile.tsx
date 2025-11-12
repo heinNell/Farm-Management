@@ -1,8 +1,7 @@
 
-import React from 'react'
-import { useAuthContext } from './AuthProvider'
 import { motion } from 'framer-motion'
-import {User, Shield, Clock, Mail, Settings, LogOut, Crown, UserCheck} from 'lucide-react'
+import { Clock, Crown, LogOut, Mail, Settings, Shield, User, UserCheck } from 'lucide-react'
+import { useAuthContext } from './AuthContext'
 
 export default function UserProfile() {
   const { user, userRole, signOut } = useAuthContext()
@@ -43,7 +42,7 @@ export default function UserProfile() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-3 mb-2">
             <h2 className="text-xl font-bold text-gray-900 truncate">
-              {user.userName}
+              {user.email?.split('@')[0] || 'User'}
             </h2>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${currentRole?.color}-100 text-${currentRole?.color}-800`}>
               {currentRole?.label}
@@ -58,7 +57,7 @@ export default function UserProfile() {
             
             <div className="flex items-center space-x-2">
               <Clock className="h-4 w-4" />
-              <span>Member since {new Date(user.createdTime).toLocaleDateString()}</span>
+              <span>Member since {new Date(user.created_at || Date.now()).toLocaleDateString()}</span>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -80,7 +79,7 @@ export default function UserProfile() {
           </button>
           
           <button
-            onClick={signOut}
+            onClick={() => { void signOut() }}
             className="flex-1 bg-red-50 text-red-700 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center space-x-2"
           >
             <LogOut className="h-4 w-4" />

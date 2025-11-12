@@ -1,7 +1,6 @@
-
-import React, { useState } from 'react'
-import {AlertTriangle, TrendingUp, TrendingDown, Calendar, Wrench, Target, RefreshCw, Bell} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { AlertTriangle, Bell, Calendar, RefreshCw, Target, TrendingDown, TrendingUp, Wrench } from 'lucide-react'
+import React, { useState } from 'react'
 import usePredictiveMaintenance from '../../hooks/usePredictiveMaintenance'
 
 interface PredictiveMaintenancePanelProps {
@@ -17,12 +16,9 @@ export const PredictiveMaintenancePanel: React.FC<PredictiveMaintenancePanelProp
     loading,
     error,
     refreshPredictions,
-    updatePredictiveModel,
-    getAssetRiskLevel,
-    getMaintenanceRecommendations
+    updatePredictiveModel
   } = usePredictiveMaintenance()
 
-  const [selectedAsset, setSelectedAsset] = useState<string>('')
   const [viewMode, setViewMode] = useState<'overview' | 'detailed' | 'recommendations'>('overview')
 
   const getRiskColor = (probability: number) => {
@@ -87,7 +83,7 @@ export const PredictiveMaintenancePanel: React.FC<PredictiveMaintenancePanelProp
           <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
           <p>{error}</p>
           <button
-            onClick={refreshPredictions}
+            onClick={() => void refreshPredictions()}
             className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
           >
             Retry
@@ -143,7 +139,7 @@ export const PredictiveMaintenancePanel: React.FC<PredictiveMaintenancePanelProp
             </div>
             
             <button
-              onClick={updatePredictiveModel}
+              onClick={() => void updatePredictiveModel()}
               className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
             >
               <RefreshCw className="h-4 w-4 mr-1" />

@@ -1,7 +1,7 @@
 
+import { Edit, Plus, Receipt, X } from 'lucide-react'
 import React, { useState } from 'react'
-import {X, Plus, Edit, Receipt} from 'lucide-react'
-import { FuelRecord, Asset } from '../../types/fuel'
+import { Asset, FuelRecord } from '../../types/fuel'
 
 interface FuelRecordModalProps {
   isOpen: boolean
@@ -20,40 +20,48 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     asset_id: record?.asset_id || '',
-    fuel_amount: record?.fuel_amount || 0,
-    fuel_cost: record?.fuel_cost || 0,
-    fuel_price_per_liter: record?.fuel_price_per_liter || 0,
-    record_type: record?.record_type || 'purchase',
-    station_name: record?.station_name || '',
+    quantity: record?.quantity || 0,
+    cost: record?.cost || 0,
+    price_per_liter: record?.price_per_liter || 0,
+    fuel_type: record?.fuel_type || 'diesel',
+    location: record?.location || '',
     receipt_number: record?.receipt_number || '',
     odometer_reading: record?.odometer_reading || 0,
-    notes: record?.notes || ''
+    notes: record?.notes || '',
+    fuel_grade: record?.fuel_grade || '',
+    weather_conditions: record?.weather_conditions || '',
+    operator_id: record?.operator_id || ''
   })
   
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
     setLoading(true)
     
-    try {
-      await onSave({
-        ...formData,
-        created_at: record?.created_at || new Date().toISOString()
-      })
-      onClose()
-    } catch (error) {
-      console.error('Failed to save fuel record:', error)
-    } finally {
-      setLoading(false)
-    }
+    void (async () => {
+      try {
+        await onSave({
+          ...formData,
+          id: record?.id || '',
+          date: record?.date || new Date().toISOString(),
+          created_at: record?.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        onClose()
+      } catch (error) {
+        console.error('Failed to save fuel record:', error)
+      } finally {
+        setLoading(false)
+      }
+    })()
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void => {
     const { name, value } = e.target
     let newValue: string | number = value
     
-    if (['fuel_amount', 'fuel_cost', 'fuel_price_per_liter', 'odometer_reading'].includes(name)) {
+    if (['quantity', 'cost', 'price_per_liter', 'odometer_reading'].includes(name)) {
       newValue = Number(value) || 0
     }
     
@@ -61,17 +69,17 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
       const updated = { ...prev, [name]: newValue }
       
       // Auto-calculate cost or price per liter
-      if (name === 'fuel_amount' || name === 'fuel_price_per_liter') {
-        updated.fuel_cost = updated.fuel_amount * updated.fuel_price_per_liter
-      } else if (name === 'fuel_cost' && updated.fuel_amount > 0) {
-        updated.fuel_price_per_liter = updated.fuel_cost / updated.fuel_amount
+      if (name === 'quantity' || name === 'price_per_liter') {
+        updated.cost = updated.quantity * updated.price_per_liter
+      } else if (name === 'cost' && updated.quantity > 0) {
+        updated.price_per_liter = updated.cost / updated.quantity
       }
       
       return updated
     })
   }
 
-  const selectedAsset = assets.find(asset => asset.asset_id === formData.asset_id)
+  const selectedAsset = assets.find(asset => asset.id === formData.asset_id)
 
   if (!isOpen) return null
 
@@ -110,44 +118,45 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
               >
                 <option value="">Select Asset</option>
                 {assets.map(asset => (
-                  <option key={asset.asset_id} value={asset.asset_id}>
-                    {asset.name} ({asset.asset_id})
+                  <option key={asset.id} value={asset.id}>
+                    {asset.name} ({asset.type})
                   </option>
                 ))}
               </select>
               {selectedAsset && (
                 <p className="text-sm text-gray-500 mt-1">
-                  {selectedAsset.type} • {selectedAsset.fuel_type} • Tank: {selectedAsset.tank_capacity}L
+                  {selectedAsset.type} • {selectedAsset.fuel_type} • Tank: {selectedAsset.fuel_capacity ?? 'N/A'}L
                 </p>
               )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Record Type *
+                Fuel Type *
               </label>
               <select
-                name="record_type"
-                value={formData.record_type}
+                name="fuel_type"
+                value={formData.fuel_type}
                 onChange={handleChange}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               >
-                <option value="purchase">Purchase</option>
-                <option value="consumption">Consumption</option>
-                <option value="refill">Refill</option>
+                <option value="diesel">Diesel</option>
+                <option value="petrol">Petrol</option>
+                <option value="lpg">LPG</option>
+                <option value="electric">Electric</option>
               </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fuel Amount (L) *
+                  Quantity (L) *
                 </label>
                 <input
                   type="number"
-                  name="fuel_amount"
-                  value={formData.fuel_amount}
+                  name="quantity"
+                  value={formData.quantity}
                   onChange={handleChange}
                   required
                   min="0"
@@ -163,8 +172,8 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  name="fuel_price_per_liter"
-                  value={formData.fuel_price_per_liter}
+                  name="price_per_liter"
+                  value={formData.price_per_liter}
                   onChange={handleChange}
                   required
                   min="0"
@@ -181,8 +190,8 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
               </label>
               <input
                 type="number"
-                name="fuel_cost"
-                value={formData.fuel_cost}
+                name="cost"
+                value={formData.cost}
                 onChange={handleChange}
                 required
                 min="0"
@@ -191,19 +200,19 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
                 placeholder="75.00"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Auto-calculated: {(formData.fuel_amount * formData.fuel_price_per_liter).toFixed(2)}
+                Auto-calculated: {(formData.quantity * formData.price_per_liter).toFixed(2)}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Station Name
+                  Location
                 </label>
                 <input
                   type="text"
-                  name="station_name"
-                  value={formData.station_name}
+                  name="location"
+                  value={formData.location}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Shell Station"

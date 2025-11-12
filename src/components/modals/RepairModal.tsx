@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react'
-import {Wrench} from 'lucide-react'
-import Modal from '../ui/Modal'
+import { Wrench } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { RepairFormData, RepairItem } from '../../types/database'
+import { repairSchema, validateForm } from '../../utils/validation'
 import FormField from '../ui/FormField'
 import FormSelect from '../ui/FormSelect'
 import FormTextarea from '../ui/FormTextarea'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import { RepairItem, RepairFormData } from '../../types/database'
-import { repairSchema, validateForm } from '../../utils/validation'
+import Modal from '../ui/Modal'
 
 interface RepairModalProps {
   isOpen: boolean
@@ -58,7 +58,7 @@ export default function RepairModal({
         estimated_cost: item.estimated_cost,
         assigned_technician: item.assigned_technician,
         warranty_status: item.warranty_status,
-        estimated_completion: item.estimated_completion.split('T')[0] // Convert to date format
+        estimated_completion: item.estimated_completion?.split('T')[0] ?? '' // Convert to date format
       })
     } else {
       setFormData({
@@ -75,31 +75,37 @@ export default function RepairModal({
     setErrors({})
   }, [item, isOpen])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
     
-    const validation = validateForm(repairSchema, {
-      ...formData,
-      estimated_completion: formData.estimated_completion + 'T00:00:00Z'
-    })
-    
-    if (!validation.success) {
-      setErrors(validation.errors || {})
-      return
-    }
+    void (async () => {
+      const validation = validateForm(repairSchema, {
+        ...formData,
+        estimated_completion: formData.estimated_completion + 'T00:00:00Z'
+      })
+      
+      if (!validation.success) {
+        setErrors(validation.errors || {})
+        return
+      }
 
-    try {
-      await onSubmit(validation.data!)
-      onClose()
-    } catch (error) {
-      console.error('Failed to submit form:', error)
-    }
+      try {
+        await onSubmit(validation.data!)
+        onClose()
+      } catch (error) {
+        console.error('Failed to submit form:', error)
+      }
+    })()
   }
 
-  const updateField = (field: keyof RepairFormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const updateField = (field: keyof RepairFormData, value: string | number): void => {
+    setFormData((prev: RepairFormData) => ({ ...prev, [field]: value }))
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
+      setErrors((prev: Record<string, string>) => {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
+      })
     }
   }
 

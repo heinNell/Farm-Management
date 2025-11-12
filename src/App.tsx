@@ -1,29 +1,16 @@
-
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from 'react-query'
 import { Toaster } from 'react-hot-toast'
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 import AuthProvider from './components/auth/AuthProvider'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Inventory from './pages/Inventory'
-import Repairs from './pages/Repairs'
-import Jobs from './pages/Jobs'
-import Inspections from './pages/Inspections'
-import Maintenance from './pages/Maintenance'
-import Settings from './pages/Settings'
-import FuelManagement from './pages/FuelManagement'
 import { useOfflineDetection } from './hooks/useOfflineDetection'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 3,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-})
+import Dashboard from './pages/Dashboard'
+import FuelManagement from './pages/FuelManagement'
+import Inspections from './pages/Inspections'
+import Inventory from './pages/Inventory'
+import Jobs from './pages/Jobs'
+import Maintenance from './pages/Maintenance'
+import Repairs from './pages/Repairs'
+import Settings from './pages/Settings'
 
 function AppContent() {
   const isOffline = useOfflineDetection()
@@ -66,13 +53,11 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </Router>
-    </QueryClientProvider>
+    <Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
   )
 }
 

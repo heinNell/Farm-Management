@@ -1,57 +1,67 @@
 
 export interface Asset {
-  _id: string
-  asset_id: string
+  id: string
   name: string
-  type: 'tractor' | 'forklift' | 'motorbike' | 'generator'
-  fuel_type: 'diesel' | 'petrol' | 'electric' | 'hybrid'
-  tank_capacity: number
-  manufacturer: string
-  model: string
-  year: number
-  status: 'active' | 'maintenance' | 'retired'
-  location: string
+  type: string
+  model: string | null
+  serial_number: string | null
+  purchase_date: string | null
+  status: 'active' | 'maintenance' | 'retired' | 'out_of_service'
+  location: string | null
+  current_hours: number | null
+  fuel_capacity: number | null
+  fuel_type: string | null
+  barcode: string | null
+  qr_code: string | null
+  notes: string | null
   created_at: string
   updated_at: string
 }
 
 export interface FuelRecord {
-  _id: string
+  id: string
   asset_id: string
-  fuel_amount: number
-  fuel_cost: number
-  fuel_price_per_liter: number
-  record_type: 'purchase' | 'consumption' | 'refill'
-  station_name?: string
-  receipt_number?: string
-  odometer_reading?: number
-  notes?: string
+  date: string
+  quantity: number
+  price_per_liter: number
+  cost: number
+  fuel_type: string
+  location: string
+  odometer_reading: number | null
+  receipt_number: string | null
+  fuel_grade: string | null
+  notes: string | null
+  weather_conditions: string | null
+  operator_id: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface OperatingSession {
-  _id: string
+  id: string
   asset_id: string
-  start_time: string
-  end_time: string
-  operating_hours: number
-  task_type: 'plowing' | 'harvesting' | 'transport' | 'maintenance' | 'other'
-  operator: string
-  fuel_consumed: number
-  location: string
-  efficiency_rating: number
-  notes?: string
+  session_start: string
+  session_end: string | null
+  initial_fuel_level: number | null
+  final_fuel_level: number | null
+  fuel_consumed: number | null
+  distance_traveled: number | null
+  operating_hours: number | null
+  efficiency_rating: number | null
+  operator_notes: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface FuelPrice {
-  _id: string
-  fuel_type: 'diesel' | 'petrol' | 'electric' | 'hybrid'
+  id: string
+  fuel_type: string
   price_per_liter: number
-  station_name?: string
-  location?: string
   effective_date: string
+  location: string | null
+  supplier: string | null
   created_at: string
+  updated_at: string
 }
 
 // KPI Interfaces

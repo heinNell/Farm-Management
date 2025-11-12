@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 
 interface FormTextareaProps {
   label: string
@@ -8,7 +8,7 @@ interface FormTextareaProps {
   onChange?: (value: string) => void
   placeholder?: string
   required?: boolean
-  error?: string
+  error?: string | undefined
   rows?: number
   maxLength?: number
   autoResize?: boolean

@@ -1,18 +1,18 @@
-
-import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import RealtimeInventoryDashboard from '../components/RealtimeInventoryDashboard'
+import
+  {
+    Bell,
+    Calendar,
+    ClipboardCheck,
+    Package,
+    TrendingUp,
+    Users,
+    Wrench
+  } from 'lucide-react'
+import { useState } from 'react'
 import CollaborativeJobBoard from '../components/CollaborativeJobBoard'
+import RealtimeInventoryDashboard from '../components/RealtimeInventoryDashboard'
 import RealtimeStatus from '../components/RealtimeStatus'
-import { 
-  Package, 
-  Wrench, 
-  ClipboardCheck, 
-  Calendar,
-  TrendingUp,
-  Users,
-  Bell
-} from 'lucide-react'
 
 const dashboardTabs = [
   { id: 'overview', label: 'Overview', icon: TrendingUp },

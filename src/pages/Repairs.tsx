@@ -1,103 +1,59 @@
-
-import React, { useState } from 'react'
-import {Search, Plus, Camera, Calendar, AlertCircle, CheckCircle, Clock, Wrench} from 'lucide-react'
-import { motion } from 'framer-motion'
-
-const mockRepairs = [
-  {
-    id: '1',
-    equipmentId: 'TRC-001',
-    equipmentName: 'John Deere 8370R Tractor',
-    defectTag: 'DEF-2024-001',
-    description: 'Hydraulic system leak in main cylinder',
-    status: 'in_progress',
-    priority: 'high',
-    assignedTo: 'Mike Johnson',
-    createdAt: '2024-01-10T08:00:00Z',
-    estimatedCompletion: '2024-01-18T17:00:00Z',
-    photos: [
-      'https://images.pexels.com/photos/1595104/pexels-photo-1595104.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&dpr=1'
-    ],
-    oemWarranty: true,
-    cost: 850.00
-  },
-  {
-    id: '2',
-    equipmentId: 'HRV-003',
-    equipmentName: 'Case IH 8250 Combine',
-    defectTag: 'DEF-2024-002',
-    description: 'Engine overheating - coolant system inspection needed',
-    status: 'pending',
-    priority: 'medium',
-    assignedTo: null,
-    createdAt: '2024-01-12T14:30:00Z',
-    estimatedCompletion: null,
-    photos: [],
-    oemWarranty: false,
-    cost: null
-  },
-  {
-    id: '3',
-    equipmentId: 'SPR-005',
-    equipmentName: 'Apache AS1240 Sprayer',
-    defectTag: 'DEF-2024-003',
-    description: 'Boom section alignment issues - calibration required',
-    status: 'completed',
-    priority: 'low',
-    assignedTo: 'Sarah Wilson',
-    createdAt: '2024-01-08T10:15:00Z',
-    estimatedCompletion: '2024-01-15T16:00:00Z',
-    photos: [
-      'https://images.pexels.com/photos/1595104/pexels-photo-1595104.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&dpr=1',
-      'https://images.pexels.com/photos/1595104/pexels-photo-1595104.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&dpr=1'
-    ],
-    oemWarranty: true,
-    cost: 425.50
-  }
-]
+import { motion } from 'framer-motion';
+import { AlertCircle, Camera, CheckCircle, Clock, Plus, Search, Wrench } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
+import type { RepairItem } from '../types/database';
 
 export default function Repairs() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [priorityFilter, setPriorityFilter] = useState('all')
+  const { items: repairs, refresh } = useSupabaseCRUD<RepairItem>('repairs');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed' | 'cancelled'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
 
-  const filteredRepairs = mockRepairs.filter(repair => {
-    const matchesSearch = repair.equipmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         repair.defectTag.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         repair.description.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || repair.status === statusFilter
-    const matchesPriority = priorityFilter === 'all' || repair.priority === priorityFilter
-    return matchesSearch && matchesStatus && matchesPriority
-  })
+  // TODO: Add loading state, update and delete handlers when needed
+  // const { items: repairs, loading, update, delete: deleteRepair, refresh } = useSupabaseCRUD<RepairItem>('repairs');
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const filteredRepairs = repairs.filter(repair => {
+    const matchesSearch = repair.equipment_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          repair.defect_tag.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          repair.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || repair.status === statusFilter;
+    const matchesPriority = priorityFilter === 'all' || repair.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-100'
-      case 'in_progress': return 'text-blue-600 bg-blue-100'
-      case 'completed': return 'text-green-600 bg-green-100'
-      case 'cancelled': return 'text-red-600 bg-red-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'pending': return 'text-yellow-600 bg-yellow-100';
+      case 'in_progress': return 'text-blue-600 bg-blue-100';
+      case 'completed': return 'text-green-600 bg-green-100';
+      case 'cancelled': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
     }
-  }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'low': return 'text-green-600 bg-green-100'
-      case 'medium': return 'text-yellow-600 bg-yellow-100'
-      case 'high': return 'text-red-600 bg-red-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'low': return 'text-green-600 bg-green-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'high': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
     }
-  }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="h-4 w-4" />
-      case 'in_progress': return <Wrench className="h-4 w-4" />
-      case 'completed': return <CheckCircle className="h-4 w-4" />
-      case 'cancelled': return <AlertCircle className="h-4 w-4" />
-      default: return <Clock className="h-4 w-4" />
+      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'in_progress': return <Wrench className="h-4 w-4" />;
+      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      case 'cancelled': return <AlertCircle className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -115,7 +71,7 @@ export default function Repairs() {
             />
           </div>
         </div>
-        
+
         <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
           <Plus className="h-5 w-5 mr-2" />
           New Repair
@@ -126,7 +82,7 @@ export default function Repairs() {
       <div className="flex flex-wrap gap-4">
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
         >
           <option value="all">All Statuses</option>
@@ -138,7 +94,7 @@ export default function Repairs() {
 
         <select
           value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
+          onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
         >
           <option value="all">All Priorities</option>
@@ -161,11 +117,11 @@ export default function Repairs() {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{repair.equipmentName}</h3>
-                  <span className="text-sm text-gray-500">#{repair.defectTag}</span>
-                  {repair.oemWarranty && (
+                  <h3 className="text-lg font-semibold text-gray-900">{repair.equipment_name}</h3>
+                  <span className="text-sm text-gray-500">#{repair.defect_tag}</span>
+                  {repair.warranty_status === 'in_warranty' && (
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      OEM Warranty
+                      Under Warranty
                     </span>
                   )}
                 </div>
@@ -186,30 +142,30 @@ export default function Repairs() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
                 <span className="text-sm text-gray-500">Assigned To:</span>
-                <p className="font-medium">{repair.assignedTo || 'Unassigned'}</p>
+                <p className="font-medium">{repair.assigned_technician || 'Unassigned'}</p>
               </div>
               <div>
                 <span className="text-sm text-gray-500">Created:</span>
                 <p className="font-medium">
-                  {new Date(repair.createdAt).toLocaleDateString()}
+                  {new Date(repair.created_at).toLocaleDateString()}
                 </p>
               </div>
               <div>
                 <span className="text-sm text-gray-500">Est. Completion:</span>
                 <p className="font-medium">
-                  {repair.estimatedCompletion 
-                    ? new Date(repair.estimatedCompletion).toLocaleDateString()
+                  {repair.estimated_completion 
+                    ? new Date(repair.estimated_completion).toLocaleDateString()
                     : 'TBD'
                   }
                 </p>
               </div>
             </div>
 
-            {repair.photos.length > 0 && (
+            {repair.photo_urls && repair.photo_urls.length > 0 && (
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Photos:</h4>
                 <div className="flex gap-2">
-                  {repair.photos.map((photo, photoIndex) => (
+                  {repair.photo_urls.map((photo, photoIndex) => (
                     <img
                       key={photoIndex}
                       src={photo}
@@ -226,8 +182,8 @@ export default function Repairs() {
 
             <div className="flex justify-between items-center pt-4 border-t border-gray-200">
               <div className="text-sm text-gray-500">
-                {repair.cost && (
-                  <span>Estimated Cost: <span className="font-medium text-gray-900">${repair.cost.toFixed(2)}</span></span>
+                {repair.estimated_cost > 0 && (
+                  <span>Estimated Cost: <span className="font-medium text-gray-900">${repair.estimated_cost.toFixed(2)}</span></span>
                 )}
               </div>
               <div className="flex gap-2">
@@ -243,5 +199,5 @@ export default function Repairs() {
         ))}
       </div>
     </div>
-  )
+  );
 }

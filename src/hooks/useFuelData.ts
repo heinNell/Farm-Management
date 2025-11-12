@@ -1,13 +1,151 @@
-
-import { useState, useEffect, useCallback } from 'react'
-<<<<<<< HEAD
-import { supabase } from '../lib/supabase'
-=======
-import { lumi } from '../lib/lumi'
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
-import { Asset, FuelRecord, OperatingSession, FuelPrice, ComprehensiveFuelKPI } from '../types/fuel'
-import { FuelKPICalculator } from '../utils/fuelCalculations'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { supabase, TABLES } from '../lib/supabase'
+import type { Asset, ComprehensiveFuelKPI, FuelPrice, FuelRecord, OperatingSession } from '../types/fuel'
+import type {
+  Numeric,
+  SupabaseAssetRow,
+  SupabaseFuelPriceRow,
+  SupabaseFuelRecordRow,
+  SupabaseOperatingSessionRow,
+} from '../types/supabase'
+import { FuelKPICalculator } from '../utils/fuelCalculations'
+
+type AssetInput = Omit<Asset, 'id' | 'created_at' | 'updated_at'>
+type FuelRecordInput = Omit<FuelRecord, 'id' | 'created_at' | 'updated_at' | 'cost'>
+type OperatingSessionInput = Omit<OperatingSession, 'id' | 'created_at' | 'updated_at'>
+type FuelPriceInput = Omit<FuelPrice, 'id' | 'created_at' | 'updated_at'>
+
+const parseNumeric = (value: Numeric): number => {
+  if (value === null || value === undefined) return 0
+  if (typeof value === 'number') return value
+  const parsed = Number(value)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+const parseNullableNumeric = (value: Numeric): number | null => {
+  if (value === null || value === undefined) return null
+  return parseNumeric(value)
+}
+
+const toNullable = <T,>(value: T | null | undefined): T | null => (value ?? null)
+
+const mapAssetRow = (row: SupabaseAssetRow): Asset => ({
+  id: row.id,
+  name: row.name,
+  type: row.type,
+  model: toNullable(row.model),
+  serial_number: toNullable(row.serial_number),
+  purchase_date: toNullable(row.purchase_date),
+  status: row.status,
+  location: toNullable(row.location),
+  current_hours: toNullable(row.current_hours),
+  fuel_capacity: parseNullableNumeric(row.fuel_capacity),
+  fuel_type: toNullable(row.fuel_type),
+  barcode: toNullable(row.barcode),
+  qr_code: toNullable(row.qr_code),
+  notes: toNullable(row.notes),
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+})
+
+const mapFuelRecordRow = (row: SupabaseFuelRecordRow): FuelRecord => ({
+  id: row.id,
+  asset_id: row.asset_id,
+  date: row.date,
+  quantity: parseNumeric(row.quantity),
+  price_per_liter: parseNumeric(row.price_per_liter),
+  cost: parseNumeric(row.cost),
+  fuel_type: row.fuel_type,
+  location: row.location,
+  odometer_reading: toNullable(row.odometer_reading),
+  receipt_number: toNullable(row.receipt_number),
+  fuel_grade: toNullable(row.fuel_grade),
+  notes: toNullable(row.notes),
+  weather_conditions: toNullable(row.weather_conditions),
+  operator_id: toNullable(row.operator_id),
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+})
+
+const mapOperatingSessionRow = (row: SupabaseOperatingSessionRow): OperatingSession => ({
+  id: row.id,
+  asset_id: row.asset_id,
+  session_start: row.session_start,
+  session_end: toNullable(row.session_end),
+  initial_fuel_level: parseNullableNumeric(row.initial_fuel_level),
+  final_fuel_level: parseNullableNumeric(row.final_fuel_level),
+  fuel_consumed: parseNullableNumeric(row.fuel_consumed),
+  distance_traveled: parseNullableNumeric(row.distance_traveled),
+  operating_hours: parseNullableNumeric(row.operating_hours),
+  efficiency_rating: parseNullableNumeric(row.efficiency_rating),
+  operator_notes: toNullable(row.operator_notes),
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+})
+
+const mapFuelPriceRow = (row: SupabaseFuelPriceRow): FuelPrice => ({
+  id: row.id,
+  fuel_type: row.fuel_type,
+  price_per_liter: parseNumeric(row.price_per_liter),
+  effective_date: row.effective_date,
+  location: toNullable(row.location),
+  supplier: toNullable(row.supplier),
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+})
+
+const prepareAssetPayload = (asset: Partial<AssetInput>) => ({
+  name: asset.name,
+  type: asset.type,
+  model: toNullable(asset.model),
+  serial_number: toNullable(asset.serial_number),
+  purchase_date: toNullable(asset.purchase_date),
+  status: asset.status,
+  location: toNullable(asset.location),
+  current_hours: asset.current_hours ?? null,
+  fuel_capacity: asset.fuel_capacity ?? null,
+  fuel_type: toNullable(asset.fuel_type),
+  barcode: toNullable(asset.barcode),
+  qr_code: toNullable(asset.qr_code),
+  notes: toNullable(asset.notes),
+})
+
+const prepareFuelRecordPayload = (record: Partial<FuelRecordInput>) => ({
+  asset_id: record.asset_id,
+  date: record.date,
+  quantity: record.quantity,
+  price_per_liter: record.price_per_liter,
+  fuel_type: record.fuel_type,
+  location: record.location,
+  odometer_reading: record.odometer_reading ?? null,
+  receipt_number: toNullable(record.receipt_number),
+  fuel_grade: toNullable(record.fuel_grade),
+  notes: toNullable(record.notes),
+  weather_conditions: toNullable(record.weather_conditions),
+  operator_id: toNullable(record.operator_id),
+})
+
+const prepareOperatingSessionPayload = (session: Partial<OperatingSessionInput>) => ({
+  asset_id: session.asset_id,
+  session_start: session.session_start,
+  session_end: toNullable(session.session_end),
+  initial_fuel_level: session.initial_fuel_level ?? null,
+  final_fuel_level: session.final_fuel_level ?? null,
+  fuel_consumed: session.fuel_consumed ?? null,
+  distance_traveled: session.distance_traveled ?? null,
+  operating_hours: session.operating_hours ?? null,
+  efficiency_rating: session.efficiency_rating ?? null,
+  operator_notes: toNullable(session.operator_notes),
+})
+
+const prepareFuelPricePayload = (price: Partial<FuelPriceInput>) => ({
+  fuel_type: price.fuel_type,
+  price_per_liter: price.price_per_liter,
+  effective_date: price.effective_date,
+  location: toNullable(price.location),
+  supplier: toNullable(price.supplier),
+})
 
 export const useFuelData = () => {
   const [assets, setAssets] = useState<Asset[]>([])
@@ -17,32 +155,41 @@ export const useFuelData = () => {
   const [loading, setLoading] = useState(true)
   const [kpis, setKPIs] = useState<ComprehensiveFuelKPI | null>(null)
 
-  // Fetch all data
   const fetchAllData = useCallback(async () => {
     setLoading(true)
     try {
       const [assetsResponse, recordsResponse, sessionsResponse, pricesResponse] = await Promise.all([
-        lumi.entities.assets.list({ sort: { created_at: -1 } }),
-        lumi.entities.fuel_records.list({ sort: { created_at: -1 } }),
-        lumi.entities.operating_sessions.list({ sort: { created_at: -1 } }),
-        lumi.entities.fuel_prices.list({ sort: { effective_date: -1 } })
+        supabase.from(TABLES.ASSETS).select('*').order('created_at', { ascending: false }),
+        supabase.from(TABLES.FUEL_RECORDS).select('*').order('date', { ascending: false }),
+        supabase.from(TABLES.OPERATING_SESSIONS).select('*').order('session_start', { ascending: false }),
+        supabase.from(TABLES.FUEL_PRICES).select('*').order('effective_date', { ascending: false }),
       ])
 
-      const assetsData = assetsResponse.list || []
-      const recordsData = recordsResponse.list || []
-      const sessionsData = sessionsResponse.list || []
-      const pricesData = pricesResponse.list || []
+      if (assetsResponse.error) throw assetsResponse.error
+      if (recordsResponse.error) throw recordsResponse.error
+      if (sessionsResponse.error) throw sessionsResponse.error
+      if (pricesResponse.error) throw pricesResponse.error
 
-      setAssets(assetsData)
-      setFuelRecords(recordsData)
-      setOperatingSessions(sessionsData)
-      setFuelPrices(pricesData)
+      const assetRows = (assetsResponse.data ?? []) as SupabaseAssetRow[]
+      const recordRows = (recordsResponse.data ?? []) as SupabaseFuelRecordRow[]
+      const sessionRows = (sessionsResponse.data ?? []) as SupabaseOperatingSessionRow[]
+      const priceRows = (pricesResponse.data ?? []) as SupabaseFuelPriceRow[]
 
-      // Calculate KPIs
-      if (assetsData.length > 0 || recordsData.length > 0 || sessionsData.length > 0) {
-        const calculator = new FuelKPICalculator(assetsData, recordsData, sessionsData)
-        const calculatedKPIs = calculator.calculateAllKPIs()
-        setKPIs(calculatedKPIs)
+      const mappedAssets = assetRows.map(mapAssetRow)
+      const mappedRecords = recordRows.map(mapFuelRecordRow)
+      const mappedSessions = sessionRows.map(mapOperatingSessionRow)
+      const mappedPrices = priceRows.map(mapFuelPriceRow)
+
+      setAssets(mappedAssets)
+      setFuelRecords(mappedRecords)
+      setOperatingSessions(mappedSessions)
+      setFuelPrices(mappedPrices)
+
+      if (mappedAssets.length || mappedRecords.length || mappedSessions.length) {
+        const calculator = new FuelKPICalculator(mappedAssets, mappedRecords, mappedSessions)
+        setKPIs(calculator.calculateAllKPIs())
+      } else {
+        setKPIs(null)
       }
     } catch (error) {
       console.error('Failed to fetch fuel data:', error)
@@ -52,179 +199,251 @@ export const useFuelData = () => {
     }
   }, [])
 
-  // Asset CRUD operations
-  const createAsset = async (assetData: Omit<Asset, '_id'>) => {
-    try {
-      const newAsset = await lumi.entities.assets.create({
-        ...assetData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      setAssets(prev => [newAsset, ...prev])
-      toast.success('Asset created successfully')
-      return newAsset
-    } catch (error) {
-      console.error('Failed to create asset:', error)
+  useEffect(() => {
+    void fetchAllData()
+  }, [fetchAllData])
+
+  const createAsset = useCallback(async (assetData: AssetInput) => {
+    const response = await supabase
+      .from(TABLES.ASSETS)
+      .insert([prepareAssetPayload(assetData)])
+      .select('*')
+      .single()
+
+    if (response.error) {
+      console.error('Failed to create asset:', response.error)
       toast.error('Failed to create asset')
-      throw error
+      throw response.error
     }
-  }
 
-  const updateAsset = async (assetId: string, updates: Partial<Asset>) => {
-    try {
-      const updatedAsset = await lumi.entities.assets.update(assetId, {
-        ...updates,
-        updated_at: new Date().toISOString()
+    const mapped = mapAssetRow(response.data as SupabaseAssetRow)
+    setAssets(prev => [mapped, ...prev])
+    toast.success('Asset created successfully')
+    return mapped
+  }, [])
+
+  const updateAsset = useCallback(async (assetId: string, updates: Partial<AssetInput>) => {
+    const response = await supabase
+      .from(TABLES.ASSETS)
+      .update({
+        ...prepareAssetPayload(updates),
+        updated_at: new Date().toISOString(),
       })
-      setAssets(prev => prev.map(a => a._id === assetId ? updatedAsset : a))
-      toast.success('Asset updated successfully')
-      return updatedAsset
-    } catch (error) {
-      console.error('Failed to update asset:', error)
-      toast.error('Failed to update asset')
-      throw error
-    }
-  }
+      .eq('id', assetId)
+      .select('*')
+      .single()
 
-  const deleteAsset = async (assetId: string) => {
-    try {
-      await lumi.entities.assets.delete(assetId)
-      setAssets(prev => prev.filter(a => a._id !== assetId))
-      toast.success('Asset deleted successfully')
-    } catch (error) {
+    if (response.error) {
+      console.error('Failed to update asset:', response.error)
+      toast.error('Failed to update asset')
+      throw response.error
+    }
+
+    const mapped = mapAssetRow(response.data as SupabaseAssetRow)
+    setAssets(prev => prev.map(asset => (asset.id === assetId ? mapped : asset)))
+    toast.success('Asset updated successfully')
+    return mapped
+  }, [])
+
+  const deleteAsset = useCallback(async (assetId: string) => {
+    const { error } = await supabase.from(TABLES.ASSETS).delete().eq('id', assetId)
+
+    if (error) {
       console.error('Failed to delete asset:', error)
       toast.error('Failed to delete asset')
       throw error
     }
-  }
 
-  // Fuel Record CRUD operations
-  const createFuelRecord = async (recordData: Omit<FuelRecord, '_id'>) => {
-    try {
-      const newRecord = await lumi.entities.fuel_records.create({
-        ...recordData,
-        created_at: new Date().toISOString()
-      })
-      setFuelRecords(prev => [newRecord, ...prev])
+    setAssets(prev => prev.filter(asset => asset.id !== assetId))
+    toast.success('Asset deleted successfully')
+  }, [])
+
+  const createFuelRecord = useCallback(
+    async (recordData: FuelRecordInput) => {
+      const response = await supabase
+        .from(TABLES.FUEL_RECORDS)
+        .insert([prepareFuelRecordPayload(recordData)])
+        .select('*')
+        .single()
+
+      if (response.error) {
+        console.error('Failed to create fuel record:', response.error)
+        toast.error('Failed to create fuel record')
+        throw response.error
+      }
+
+      const mapped = mapFuelRecordRow(response.data as SupabaseFuelRecordRow)
+      setFuelRecords(prev => [mapped, ...prev])
       toast.success('Fuel record created successfully')
-      await fetchAllData() // Refresh to recalculate KPIs
-      return newRecord
-    } catch (error) {
-      console.error('Failed to create fuel record:', error)
-      toast.error('Failed to create fuel record')
-      throw error
-    }
-  }
+      await fetchAllData()
+      return mapped
+    },
+    [fetchAllData],
+  )
 
-  const updateFuelRecord = async (recordId: string, updates: Partial<FuelRecord>) => {
-    try {
-      const updatedRecord = await lumi.entities.fuel_records.update(recordId, updates)
-      setFuelRecords(prev => prev.map(r => r._id === recordId ? updatedRecord : r))
+  const updateFuelRecord = useCallback(
+    async (recordId: string, updates: Partial<FuelRecordInput>) => {
+      const response = await supabase
+        .from(TABLES.FUEL_RECORDS)
+        .update({
+          ...prepareFuelRecordPayload(updates),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', recordId)
+        .select('*')
+        .single()
+
+      if (response.error) {
+        console.error('Failed to update fuel record:', response.error)
+        toast.error('Failed to update fuel record')
+        throw response.error
+      }
+
+      const mapped = mapFuelRecordRow(response.data as SupabaseFuelRecordRow)
+      setFuelRecords(prev => prev.map(record => (record.id === recordId ? mapped : record)))
       toast.success('Fuel record updated successfully')
-      await fetchAllData() // Refresh to recalculate KPIs
-      return updatedRecord
-    } catch (error) {
-      console.error('Failed to update fuel record:', error)
-      toast.error('Failed to update fuel record')
-      throw error
-    }
-  }
+      await fetchAllData()
+      return mapped
+    },
+    [fetchAllData],
+  )
 
-  const deleteFuelRecord = async (recordId: string) => {
-    try {
-      await lumi.entities.fuel_records.delete(recordId)
-      setFuelRecords(prev => prev.filter(r => r._id !== recordId))
+  const deleteFuelRecord = useCallback(
+    async (recordId: string) => {
+      const { error } = await supabase.from(TABLES.FUEL_RECORDS).delete().eq('id', recordId)
+
+      if (error) {
+        console.error('Failed to delete fuel record:', error)
+        toast.error('Failed to delete fuel record')
+        throw error
+      }
+
+      setFuelRecords(prev => prev.filter(record => record.id !== recordId))
       toast.success('Fuel record deleted successfully')
-      await fetchAllData() // Refresh to recalculate KPIs
-    } catch (error) {
-      console.error('Failed to delete fuel record:', error)
-      toast.error('Failed to delete fuel record')
-      throw error
-    }
-  }
+      await fetchAllData()
+    },
+    [fetchAllData],
+  )
 
-  // Operating Session CRUD operations
-  const createOperatingSession = async (sessionData: Omit<OperatingSession, '_id'>) => {
-    try {
-      const newSession = await lumi.entities.operating_sessions.create({
-        ...sessionData,
-        created_at: new Date().toISOString()
-      })
-      setOperatingSessions(prev => [newSession, ...prev])
+  const createOperatingSession = useCallback(
+    async (sessionData: OperatingSessionInput) => {
+      const response = await supabase
+        .from(TABLES.OPERATING_SESSIONS)
+        .insert([prepareOperatingSessionPayload(sessionData)])
+        .select('*')
+        .single()
+
+      if (response.error) {
+        console.error('Failed to create operating session:', response.error)
+        toast.error('Failed to create operating session')
+        throw response.error
+      }
+
+      const mapped = mapOperatingSessionRow(response.data as SupabaseOperatingSessionRow)
+      setOperatingSessions(prev => [mapped, ...prev])
       toast.success('Operating session created successfully')
-      await fetchAllData() // Refresh to recalculate KPIs
-      return newSession
-    } catch (error) {
-      console.error('Failed to create operating session:', error)
-      toast.error('Failed to create operating session')
-      throw error
-    }
-  }
+      await fetchAllData()
+      return mapped
+    },
+    [fetchAllData],
+  )
 
-  const updateOperatingSession = async (sessionId: string, updates: Partial<OperatingSession>) => {
-    try {
-      const updatedSession = await lumi.entities.operating_sessions.update(sessionId, updates)
-      setOperatingSessions(prev => prev.map(s => s._id === sessionId ? updatedSession : s))
+  const updateOperatingSession = useCallback(
+    async (sessionId: string, updates: Partial<OperatingSessionInput>) => {
+      const response = await supabase
+        .from(TABLES.OPERATING_SESSIONS)
+        .update({
+          ...prepareOperatingSessionPayload(updates),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+        .select('*')
+        .single()
+
+      if (response.error) {
+        console.error('Failed to update operating session:', response.error)
+        toast.error('Failed to update operating session')
+        throw response.error
+      }
+
+      const mapped = mapOperatingSessionRow(response.data as SupabaseOperatingSessionRow)
+      setOperatingSessions(prev => prev.map(session => (session.id === sessionId ? mapped : session)))
       toast.success('Operating session updated successfully')
-      await fetchAllData() // Refresh to recalculate KPIs
-      return updatedSession
-    } catch (error) {
-      console.error('Failed to update operating session:', error)
-      toast.error('Failed to update operating session')
-      throw error
-    }
-  }
+      await fetchAllData()
+      return mapped
+    },
+    [fetchAllData],
+  )
 
-  const deleteOperatingSession = async (sessionId: string) => {
-    try {
-      await lumi.entities.operating_sessions.delete(sessionId)
-      setOperatingSessions(prev => prev.filter(s => s._id !== sessionId))
+  const deleteOperatingSession = useCallback(
+    async (sessionId: string) => {
+      const { error } = await supabase.from(TABLES.OPERATING_SESSIONS).delete().eq('id', sessionId)
+
+      if (error) {
+        console.error('Failed to delete operating session:', error)
+        toast.error('Failed to delete operating session')
+        throw error
+      }
+
+      setOperatingSessions(prev => prev.filter(session => session.id !== sessionId))
       toast.success('Operating session deleted successfully')
-      await fetchAllData() // Refresh to recalculate KPIs
-    } catch (error) {
-      console.error('Failed to delete operating session:', error)
-      toast.error('Failed to delete operating session')
-      throw error
-    }
-  }
+      await fetchAllData()
+    },
+    [fetchAllData],
+  )
 
-  // Fuel Price operations
-  const createFuelPrice = async (priceData: Omit<FuelPrice, '_id'>) => {
-    try {
-      const newPrice = await lumi.entities.fuel_prices.create({
-        ...priceData,
-        created_at: new Date().toISOString()
-      })
-      setFuelPrices(prev => [newPrice, ...prev])
-      toast.success('Fuel price record created successfully')
-      return newPrice
-    } catch (error) {
-      console.error('Failed to create fuel price:', error)
+  const createFuelPrice = useCallback(async (priceData: FuelPriceInput) => {
+    const response = await supabase
+      .from(TABLES.FUEL_PRICES)
+      .insert([prepareFuelPricePayload(priceData)])
+      .select('*')
+      .single()
+
+    if (response.error) {
+      console.error('Failed to create fuel price:', response.error)
       toast.error('Failed to create fuel price')
-      throw error
+      throw response.error
     }
-  }
 
-  // Get filtered data
-  const getAssetsByType = (type: string) => assets.filter(asset => asset.type === type)
-  const getActiveAssets = () => assets.filter(asset => asset.status === 'active')
-  const getFuelRecordsByAsset = (assetId: string) => fuelRecords.filter(record => record.asset_id === assetId)
-  const getSessionsByAsset = (assetId: string) => operatingSessions.filter(session => session.asset_id === assetId)
+    const mapped = mapFuelPriceRow(response.data as SupabaseFuelPriceRow)
+    setFuelPrices(prev => [mapped, ...prev])
+    toast.success('Fuel price record created successfully')
+    return mapped
+  }, [])
 
-  useEffect(() => {
-    fetchAllData()
-  }, [fetchAllData])
+  const getAssetsByType = useCallback((type: string) => assets.filter(asset => asset.type === type), [assets])
+
+  const getActiveAssets = useCallback(() => assets.filter(asset => asset.status === 'active'), [assets])
+
+  const getFuelRecordsByAsset = useCallback(
+    (assetId: string) => fuelRecords.filter(record => record.asset_id === assetId),
+    [fuelRecords],
+  )
+
+  const getSessionsByAsset = useCallback(
+    (assetId: string) => operatingSessions.filter(session => session.asset_id === assetId),
+    [operatingSessions],
+  )
+
+  const stats = useMemo(
+    () => ({
+      assetCount: assets.length,
+      fuelRecordCount: fuelRecords.length,
+      sessionCount: operatingSessions.length,
+      fuelPriceCount: fuelPrices.length,
+    }),
+    [assets.length, fuelPrices.length, fuelRecords.length, operatingSessions.length],
+  )
 
   return {
-    // Data
     assets,
     fuelRecords,
     operatingSessions,
     fuelPrices,
     kpis,
     loading,
-
-    // CRUD operations
+    stats,
+    fetchAllData,
     createAsset,
     updateAsset,
     deleteAsset,
@@ -235,12 +454,9 @@ export const useFuelData = () => {
     updateOperatingSession,
     deleteOperatingSession,
     createFuelPrice,
-
-    // Utility functions
-    fetchAllData,
     getAssetsByType,
     getActiveAssets,
     getFuelRecordsByAsset,
-    getSessionsByAsset
+    getSessionsByAsset,
   }
 }

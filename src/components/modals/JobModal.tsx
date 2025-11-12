@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react'
-import {Clipboard, X} from 'lucide-react'
-import Modal from '../ui/Modal'
+import { Clipboard, X } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { JobCard, JobFormData } from '../../types/database'
+import { jobSchema, validateForm } from '../../utils/validation'
 import FormField from '../ui/FormField'
 import FormSelect from '../ui/FormSelect'
 import FormTextarea from '../ui/FormTextarea'
 import LoadingSpinner from '../ui/LoadingSpinner'
-import { JobCard, JobFormData } from '../../types/database'
-import { jobSchema, validateForm } from '../../utils/validation'
+import Modal from '../ui/Modal'
 
 interface JobModalProps {
   isOpen: boolean
@@ -52,7 +52,7 @@ export default function JobModal({
         assigned_to: item.assigned_to,
         location: item.location,
         estimated_hours: item.estimated_hours,
-        due_date: item.due_date.split('T')[0], // Convert to date format
+        due_date: item.due_date?.split('T')[0] || '', // Convert to date format
         tags: item.tags || []
       })
     } else {
@@ -71,7 +71,7 @@ export default function JobModal({
     setNewTag('')
   }, [item, isOpen])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
     const validation = validateForm(jobSchema, {
@@ -84,18 +84,17 @@ export default function JobModal({
       return
     }
 
-    try {
-      await onSubmit(validation.data!)
-      onClose()
-    } catch (error) {
-      console.error('Failed to submit form:', error)
-    }
+    void onSubmit(validation.data!)
+      .then(() => onClose())
+      .catch((error) => {
+        console.error('Failed to submit form:', error)
+      })
   }
 
   const updateField = (field: keyof JobFormData, value: string | number | string[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev: JobFormData) => ({ ...prev, [field]: value }))
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
+      setErrors((prev: Record<string, string>) => ({ ...prev, [field]: '' }))
     }
   }
 
@@ -107,7 +106,7 @@ export default function JobModal({
   }
 
   const removeTag = (tagToRemove: string) => {
-    updateField('tags', formData.tags?.filter(tag => tag !== tagToRemove) || [])
+    updateField('tags', formData.tags?.filter((tag: string) => tag !== tagToRemove) || [])
   }
 
   const handleTagKeyPress = (e: React.KeyboardEvent) => {
@@ -205,7 +204,7 @@ export default function JobModal({
           required
           rows={4}
           maxLength={1000}
-          error={errors.description}
+          error={errors.description || undefined}
         />
 
         {/* Tags Section */}
@@ -234,7 +233,7 @@ export default function JobModal({
 
           {formData.tags && formData.tags.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {formData.tags.map((tag, index) => (
+              {formData.tags.map((tag: string, index: number) => (
                 <span
                   key={index}
                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"

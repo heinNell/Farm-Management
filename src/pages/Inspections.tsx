@@ -1,67 +1,10 @@
 
-import React, { useState } from 'react'
-import {Search, Plus, Calendar, FileText, CheckCircle, AlertTriangle, Download} from 'lucide-react'
-import { motion } from 'framer-motion'
 
-const mockInspections = [
-  {
-    id: '1',
-    title: 'Monthly Safety Inspection',
-    equipmentId: 'TRC-001',
-    equipmentName: 'John Deere 8370R Tractor',
-    templateId: 'safety-monthly',
-    scheduledDate: '2024-01-20T09:00:00Z',
-    completedDate: null,
-    inspector: 'Sarah Wilson',
-    status: 'scheduled',
-    score: null,
-    checklist: [
-      { id: '1', item: 'Check hydraulic fluid levels', completed: false, notes: '' },
-      { id: '2', item: 'Inspect tire condition and pressure', completed: false, notes: '' },
-      { id: '3', item: 'Test all lights and signals', completed: false, notes: '' },
-      { id: '4', item: 'Check emergency stop functionality', completed: false, notes: '' },
-      { id: '5', item: 'Verify fire extinguisher presence', completed: false, notes: '' }
-    ]
-  },
-  {
-    id: '2',
-    title: 'Pre-Season Equipment Check',
-    equipmentId: 'HRV-003',
-    equipmentName: 'Case IH 8250 Combine',
-    templateId: 'pre-season',
-    scheduledDate: '2024-01-18T14:00:00Z',
-    completedDate: '2024-01-18T16:30:00Z',
-    inspector: 'Mike Johnson',
-    status: 'completed',
-    score: 87,
-    checklist: [
-      { id: '1', item: 'Engine oil and filter check', completed: true, notes: 'Oil changed' },
-      { id: '2', item: 'Belt tension inspection', completed: true, notes: 'All belts good' },
-      { id: '3', item: 'Cutting blade sharpness', completed: true, notes: 'Blades sharpened' },
-      { id: '4', item: 'Grain tank cleanliness', completed: false, notes: 'Minor debris found' },
-      { id: '5', item: 'Electrical system check', completed: true, notes: 'All systems operational' }
-    ]
-  },
-  {
-    id: '3',
-    title: 'Annual Compliance Audit',
-    equipmentId: 'SPR-005',
-    equipmentName: 'Apache AS1240 Sprayer',
-    templateId: 'compliance-annual',
-    scheduledDate: '2024-01-15T10:00:00Z',
-    completedDate: '2024-01-15T12:45:00Z',
-    inspector: 'David Brown',
-    status: 'completed',
-    score: 95,
-    checklist: [
-      { id: '1', item: 'Calibration certificate validity', completed: true, notes: 'Valid until Dec 2024' },
-      { id: '2', item: 'Spray pattern uniformity', completed: true, notes: 'Within tolerance' },
-      { id: '3', item: 'Tank and hose integrity', completed: true, notes: 'No leaks detected' },
-      { id: '4', item: 'Safety equipment present', completed: true, notes: 'All items accounted for' },
-      { id: '5', item: 'Documentation complete', completed: true, notes: 'All records up to date' }
-    ]
-  }
-]
+import { motion } from 'framer-motion'
+import { Calendar, CheckCircle, Download, FileText, Plus, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
+import type { Inspection } from '../types/database'
 
 const inspectionTemplates = [
   { id: 'safety-monthly', name: 'Monthly Safety Inspection', frequency: 'Monthly' },
@@ -72,16 +15,37 @@ const inspectionTemplates = [
 
 export default function Inspections() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [selectedInspection, setSelectedInspection] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'scheduled' | 'in_progress' | 'completed' | 'overdue'>('all')
 
-  const filteredInspections = mockInspections.filter(inspection => {
+  // TODO: Implement modal and type filter functionality
+  // const [typeFilter, setTypeFilter] = useState<'all' | 'safety' | 'pre_season' | 'compliance' | 'maintenance'>('all')
+  // const [showCreateModal, setShowCreateModal] = useState(false)
+  // const [editingInspection, setEditingInspection] = useState<Inspection | null>(null)
+  
+  // Use Supabase CRUD hook
+  const { items: inspections, loading, update, delete: deleteInspection, refresh } = useSupabaseCRUD<Inspection>('inspections')
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  const filteredInspections = inspections.filter(inspection => {
     const matchesSearch = inspection.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         inspection.equipmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          inspection.inspector.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || inspection.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  // Handler functions for CRUD operations
+  const handleDeleteInspection = async (id: string) => {
+    if (confirm('Are you sure you want to delete this inspection?')) {
+      await deleteInspection(id)
+    }
+  }
+
+  const handleUpdateStatus = async (id: string, newStatus: Inspection['status']) => {
+    await update(id, { status: newStatus })
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -100,7 +64,16 @@ export default function Inspections() {
     return 'text-red-600'
   }
 
-  const completedItems = (checklist: any[]) => checklist.filter(item => item.completed).length
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading inspections...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -119,7 +92,13 @@ export default function Inspections() {
           </div>
         </div>
         
-        <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+        <button 
+          onClick={() => { 
+            // TODO: Implement create modal
+            alert('Create inspection modal - Coming soon!')
+          }}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
           <Plus className="h-5 w-5 mr-2" />
           Schedule Inspection
         </button>
@@ -129,7 +108,7 @@ export default function Inspections() {
       <div className="flex gap-4">
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
         >
           <option value="all">All Statuses</option>
@@ -142,7 +121,17 @@ export default function Inspections() {
 
       {/* Inspections List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredInspections.map((inspection, index) => (
+        {filteredInspections.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <p className="text-gray-500 text-lg">No inspections found</p>
+            <p className="text-gray-400 text-sm mt-2">
+              {searchTerm || statusFilter !== 'all' 
+                ? 'Try adjusting your filters' 
+                : 'Schedule your first inspection to get started'}
+            </p>
+          </div>
+        ) : (
+          filteredInspections.map((inspection, index) => (
           <motion.div
             key={inspection.id}
             initial={{ opacity: 0, y: 20 }}
@@ -153,7 +142,7 @@ export default function Inspections() {
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">{inspection.title}</h3>
-                <p className="text-sm text-gray-600">{inspection.equipmentName}</p>
+                <p className="text-sm text-gray-600">Type: {inspection.type}</p>
               </div>
               <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(inspection.status)}`}>
                 {inspection.status === 'in_progress' ? 'In Progress' : inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
@@ -169,15 +158,15 @@ export default function Inspections() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Scheduled:</span>
                 <span className="text-sm font-medium">
-                  {new Date(inspection.scheduledDate).toLocaleDateString()} at {new Date(inspection.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(inspection.scheduled_date).toLocaleDateString()} at {new Date(inspection.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
 
-              {inspection.completedDate && (
+              {inspection.completed_date && (
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Completed:</span>
                   <span className="text-sm font-medium">
-                    {new Date(inspection.completedDate).toLocaleDateString()}
+                    {new Date(inspection.completed_date).toLocaleDateString()}
                   </span>
                 </div>
               )}
@@ -185,11 +174,11 @@ export default function Inspections() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Progress:</span>
                 <span className="text-sm font-medium">
-                  {completedItems(inspection.checklist)}/{inspection.checklist.length} items
+                  {inspection.progress}%
                 </span>
               </div>
 
-              {inspection.score && (
+              {inspection.score > 0 && (
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Score:</span>
                   <span className={`text-sm font-bold ${getScoreColor(inspection.score)}`}>
@@ -206,7 +195,7 @@ export default function Inspections() {
                   inspection.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
                 }`}
                 style={{ 
-                  width: `${(completedItems(inspection.checklist) / inspection.checklist.length) * 100}%` 
+                  width: `${inspection.progress}%` 
                 }}
               />
             </div>
@@ -226,19 +215,26 @@ export default function Inspections() {
                 </>
               ) : (
                 <>
-                  <button className="flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                  <button 
+                    onClick={() => { void handleUpdateStatus(inspection.id, 'in_progress') }}
+                    className="flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Start Inspection
                   </button>
-                  <button className="flex items-center px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                  <button 
+                    onClick={() => { void handleDeleteInspection(inspection.id) }}
+                    className="flex items-center px-3 py-2 text-sm text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                  >
                     <Calendar className="h-4 w-4 mr-1" />
-                    Reschedule
+                    Delete
                   </button>
                 </>
               )}
             </div>
           </motion.div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Templates Section */}

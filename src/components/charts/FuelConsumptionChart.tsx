@@ -1,11 +1,6 @@
-
-import React, { useState, useMemo } from 'react'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
-<<<<<<< HEAD
-import { BarChart3, TrendingUp, PieChart as PieChartIcon } from 'lucide-react'
-=======
-import {Calendar, BarChart3, TrendingUp, PieChart as PieChartIcon} from 'lucide-react'
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
+import { BarChart3, PieChart as PieChartIcon, TrendingUp } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 interface FuelRecord {
   id: string
@@ -26,7 +21,6 @@ interface FuelConsumptionChartProps {
 type ChartType = 'area' | 'bar' | 'line' | 'pie'
 type TimeGrouping = 'day' | 'week' | 'month' | 'quarter'
 
-<<<<<<< HEAD
 interface ProcessedDataItem {
   period: string
   totalQuantity: number
@@ -37,19 +31,12 @@ interface ProcessedDataItem {
   assets: string[]
 }
 
-interface PieDataItem {
-  name: string
-  value: number
-}
-
 interface TooltipProps {
   active?: boolean
   payload?: Array<{ payload: ProcessedDataItem }>
   label?: string
 }
 
-=======
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
 
 export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({ 
@@ -62,11 +49,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
   const [selectedAssets, setSelectedAssets] = useState<string[]>([])
 
   // Process and group data based on time period
-<<<<<<< HEAD
   const processedData = useMemo((): ProcessedDataItem[] => {
-=======
-  const processedData = useMemo(() => {
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     if (!data || data.length === 0) return []
 
     // Filter by selected assets if any
@@ -75,7 +58,6 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
       : data
 
     // Group by time period
-<<<<<<< HEAD
     interface GroupedItem {
       period: string
       totalQuantity: number
@@ -85,44 +67,30 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
       assets: Set<string>
     }
 
-=======
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     const grouped = filteredData.reduce((acc, record) => {
       const date = new Date(record.date)
-      let key: string
-
-<<<<<<< HEAD
+      let key: string = (date.toISOString().split('T')[0] || '')
       let weekStart: Date
       let quarter: number
       
-=======
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
       switch (timeGrouping) {
         case 'day':
-          key = date.toISOString().split('T')[0]
+          key = (date.toISOString().split('T')[0] || '')
           break
         case 'week':
-<<<<<<< HEAD
           weekStart = new Date(date)
-=======
-          const weekStart = new Date(date)
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
           weekStart.setDate(date.getDate() - date.getDay())
-          key = weekStart.toISOString().split('T')[0]
+          key = (weekStart.toISOString().split('T')[0] || '')
           break
         case 'month':
           key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
           break
         case 'quarter':
-<<<<<<< HEAD
           quarter = Math.floor(date.getMonth() / 3) + 1
-=======
-          const quarter = Math.floor(date.getMonth() / 3) + 1
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
           key = `${date.getFullYear()}-Q${quarter}`
           break
         default:
-          key = date.toISOString().split('T')[0]
+          key = (date.toISOString().split('T')[0] || '')
       }
 
       if (!acc[key]) {
@@ -136,15 +104,17 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
         }
       }
 
-      acc[key].totalQuantity += record.quantity
-      acc[key].totalCost += record.cost
-      acc[key].recordCount += 1
-      if (record.asset_name) {
-        acc[key].assets.add(record.asset_name)
+      const group = acc[key]
+      if (group) {
+        group.totalQuantity += record.quantity
+        group.totalCost += record.cost
+        group.recordCount += 1
+        if (record.asset_name) {
+          group.assets.add(record.asset_name)
+        }
       }
 
       return acc
-<<<<<<< HEAD
     }, {} as Record<string, GroupedItem>)
 
     // Convert to array and calculate averages
@@ -154,26 +124,14 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
       totalCost: item.totalCost,
       averagePrice: item.totalCost / item.totalQuantity,
       recordCount: item.recordCount,
-=======
-    }, {} as Record<string, any>)
-
-    // Convert to array and calculate averages
-    return Object.values(grouped).map((item: any) => ({
-      ...item,
-      averagePrice: item.totalCost / item.totalQuantity,
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
       assetCount: item.assets.size,
-      assets: Array.from(item.assets)
+      assets: Array.from(item.assets),
     })).sort((a, b) => a.period.localeCompare(b.period))
   }, [data, timeGrouping, selectedAssets])
 
   // Get unique assets for filtering
   const uniqueAssets = useMemo(() => {
-<<<<<<< HEAD
     const assets = new Map<string, string>()
-=======
-    const assets = new Map()
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     data.forEach(record => {
       if (record.asset_name) {
         assets.set(record.asset_id, record.asset_name)
@@ -204,6 +162,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
     }
     if (timeGrouping === 'month') {
       const [year, month] = period.split('-')
+      if (!year || !month) return period
       return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'short' 
@@ -215,20 +174,13 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
     })
   }
 
-<<<<<<< HEAD
   const CustomTooltip: React.FC<TooltipProps> = ({ active, payload, label }) => {
-=======
-  const CustomTooltip = ({ active, payload, label }: any) => {
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     if (active && payload && payload.length) {
-      const data = payload[0].payload
+      const data = payload[0]?.payload
+      if (!data) return null
       return (
         <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-<<<<<<< HEAD
-          <p className="font-semibold text-gray-900">{formatPeriod(label || '')}</p>
-=======
-          <p className="font-semibold text-gray-900">{formatPeriod(label)}</p>
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
+          <p className="font-semibold text-gray-900">{formatPeriod(String(label || ''))}</p>
           <p className="text-blue-600">
             Total Fuel: <span className="font-bold">{data.totalQuantity.toFixed(1)}L</span>
           </p>
@@ -256,11 +208,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
     return null
   }
 
-<<<<<<< HEAD
   const renderChart = (): React.ReactElement => {
-=======
-  const renderChart = () => {
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
     switch (chartType) {
       case 'area':
         return (
@@ -322,7 +270,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
               fill="#8884d8"
               dataKey="value"
             >
-              {pieData.map((entry, index) => (
+              {pieData.map((_entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
@@ -336,26 +284,7 @@ export const FuelConsumptionChart: React.FC<FuelConsumptionChartProps> = ({
         )
 
       default:
-<<<<<<< HEAD
-        return (
-          <AreaChart data={processedData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="period" tickFormatter={formatPeriod} />
-            <YAxis />
-            <Tooltip content={<CustomTooltip />} />
-            <Area 
-              type="monotone" 
-              dataKey="totalQuantity" 
-              stroke="#0088FE" 
-              fill="#0088FE" 
-              fillOpacity={0.6}
-              name="Fuel Consumed (L)"
-            />
-          </AreaChart>
-        )
-=======
-        return null
->>>>>>> 7007f2641c8d8f138613e8bd6344c972373bfbcc
+        return <div className="text-center text-gray-500 py-8">Select a chart type</div>
     }
   }
 

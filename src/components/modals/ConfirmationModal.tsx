@@ -1,6 +1,4 @@
-
-import React from 'react'
-import {AlertTriangle, Trash2} from 'lucide-react'
+import { AlertTriangle, Trash2 } from 'lucide-react'
 import Modal from '../ui/Modal'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
@@ -28,13 +26,15 @@ export default function ConfirmationModal({
   loading = false
 }: ConfirmationModalProps) {
   
-  const handleConfirm = async () => {
-    try {
-      await onConfirm()
-      onClose()
-    } catch (error) {
-      console.error('Confirmation action failed:', error)
-    }
+  const handleConfirm = () => {
+    void (async () => {
+      try {
+        await onConfirm()
+        onClose()
+      } catch (error) {
+        console.error('Confirmation action failed:', error)
+      }
+    })()
   }
 
   const getIcon = () => {

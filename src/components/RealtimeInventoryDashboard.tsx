@@ -1,21 +1,31 @@
-
-import React, { useState, useMemo } from 'react'
-import { useRealtimeInventory } from '../hooks/useRealtimeInventory'
-import { Search, Filter, Package, AlertTriangle, TrendingDown, Plus, Scan } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { AlertTriangle, Filter, Package, Plus, Scan, Search, TrendingDown } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { useRealtimeInventory } from '../hooks/useRealtimeInventory'
 import RealtimeStatus from './RealtimeStatus'
 import ScanModal from './ScanModal'
+
+// Add interface for inventory item type
+interface InventoryItem {
+  id: string
+  name: string
+  sku: string
+  category: string
+  location: string
+  current_stock: number
+  min_stock: number
+  max_stock: number
+  unit: string
+  status: 'in_stock' | 'low_stock' | 'out_of_stock'
+  last_updated: string
+}
 
 export const RealtimeInventoryDashboard: React.FC = () => {
   const {
     inventoryItems,
-    lowStockItems,
-    outOfStockItems,
     loading,
-    addInventoryItem,
     updateStock,
     searchItems,
-    filterByCategory,
     filterByStatus,
     totalItems,
     totalLowStock,
@@ -25,8 +35,7 @@ export const RealtimeInventoryDashboard: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [selectedStatus, setSelectedStatus] = useState('all')
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock'>('all')
   const [showScanModal, setShowScanModal] = useState(false)
 
   // Filter and search items
@@ -42,14 +51,14 @@ export const RealtimeInventoryDashboard: React.FC = () => {
     }
 
     if (selectedStatus !== 'all') {
-      items = filterByStatus(selectedStatus as any)
+      items = filterByStatus(selectedStatus)
     }
 
     return items
   }, [inventoryItems, searchQuery, selectedCategory, selectedStatus, searchItems, filterByStatus])
 
-  const handleStockUpdate = async (itemId: string, newStock: number) => {
-    await updateStock(itemId, newStock)
+  const handleStockUpdate = (itemId: string, newStock: number) => {
+    void updateStock(itemId, newStock)
   }
 
   const handleBarcodeScan = (scannedData: string) => {
@@ -60,13 +69,13 @@ export const RealtimeInventoryDashboard: React.FC = () => {
     setShowScanModal(false)
   }
 
-  const getStockColor = (item: any) => {
+  const getStockColor = (item: InventoryItem) => {
     if (item.current_stock === 0) return 'text-red-600 bg-red-50'
     if (item.current_stock <= item.min_stock) return 'text-yellow-600 bg-yellow-50'
     return 'text-green-600 bg-green-50'
   }
 
-  const getStockPercentage = (item: any) => {
+  const getStockPercentage = (item: InventoryItem) => {
     return Math.min((item.current_stock / item.max_stock) * 100, 100)
   }
 
@@ -181,7 +190,7 @@ export const RealtimeInventoryDashboard: React.FC = () => {
 
           <select
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
+            onChange={(e) => setSelectedStatus(e.target.value as typeof selectedStatus)}
             className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
           >
             <option value="all">All Status</option>
@@ -199,7 +208,7 @@ export const RealtimeInventoryDashboard: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {/* TODO: Implement add form */}}
             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Plus className="h-5 w-5 mr-2" />
@@ -275,7 +284,7 @@ export const RealtimeInventoryDashboard: React.FC = () => {
                     onBlur={(e) => {
                       const newStock = parseInt(e.target.value) || 0
                       if (newStock !== item.current_stock) {
-                        handleStockUpdate(item.id, newStock)
+                        void handleStockUpdate(item.id, newStock)
                       }
                     }}
                   />
@@ -305,7 +314,6 @@ export const RealtimeInventoryDashboard: React.FC = () => {
           isOpen={showScanModal}
           onClose={() => setShowScanModal(false)}
           onScan={handleBarcodeScan}
-          title="Scan Item Barcode"
         />
       )}
     </div>

@@ -1,7 +1,6 @@
-
-import React, { useEffect, useRef, useState } from 'react'
-import {X, Camera, AlertCircle} from 'lucide-react'
 import { Html5QrcodeScanner } from 'html5-qrcode'
+import { AlertCircle, Camera, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 interface ScanModalProps {
   isOpen: boolean
