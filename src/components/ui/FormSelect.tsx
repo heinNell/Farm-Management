@@ -12,6 +12,7 @@ interface FormSelectProps {
   required?: boolean
   error?: string | undefined
   className?: string
+  disabled?: boolean
 }
 
 export default function FormSelect({
@@ -23,7 +24,8 @@ export default function FormSelect({
   placeholder = 'Select an option',
   required = false,
   error,
-  className = ''
+  className = '',
+  disabled = false
 }: FormSelectProps) {
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onChange?.(e.target.value)
@@ -43,11 +45,12 @@ export default function FormSelect({
           value={value || ''}
           onChange={handleChange}
           required={required}
+          disabled={disabled}
           className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors appearance-none pr-10 ${
             error 
               ? 'border-red-300 focus:ring-red-500' 
               : 'border-gray-300 hover:border-gray-400'
-          }`}
+          } ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
         >
           <option value="">{placeholder}</option>
           {options.map((option) => (

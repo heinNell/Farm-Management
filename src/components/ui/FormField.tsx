@@ -11,7 +11,8 @@ export default function FormField({
   error,
   value,
   onChange,
-  className = ''
+  className = '',
+  step
 }: FormFieldProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value
@@ -33,6 +34,7 @@ export default function FormField({
         onChange={handleChange}
         placeholder={placeholder}
         required={required}
+        step={step}
         className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors ${
           error 
             ? 'border-red-300 focus:ring-red-500' 

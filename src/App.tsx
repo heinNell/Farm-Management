@@ -11,6 +11,7 @@ import Jobs from './pages/Jobs'
 import Maintenance from './pages/Maintenance'
 import Repairs from './pages/Repairs'
 import Settings from './pages/Settings'
+import StockItems from './pages/StockItems'
 
 function AppContent() {
   const isOffline = useOfflineDetection()
@@ -28,6 +29,7 @@ function AppContent() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="inventory" element={<Inventory />} />
+          <Route path="stock-items" element={<StockItems />} />
           <Route path="repairs" element={<Repairs />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="inspections" element={<Inspections />} />

@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
-import type { InventoryItem } from '../types/database'
-import type { Asset, FuelRecord } from '../types/fuel'
+import type { Asset, FuelRecord, InventoryItem } from '../types/database'
 
 interface ExportOptions {
   format: 'csv' | 'excel' | 'pdf'

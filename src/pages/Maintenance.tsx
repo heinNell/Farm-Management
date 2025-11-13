@@ -1,108 +1,97 @@
 
 import { motion } from 'framer-motion'
 import { Plus, Search, TrendingUp } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import MaintenanceCalendar from '../components/MaintenanceCalendar'
-
-const mockMaintenanceItems = [
-  {
-    id: '1',
-    equipmentId: 'TRC-001',
-    equipmentName: 'John Deere 8370R Tractor',
-    maintenanceType: 'Oil Change',
-    scheduledDate: '2024-01-25T10:00:00Z',
-    lastPerformed: '2024-01-01T10:00:00Z',
-    intervalType: 'hours',
-    intervalValue: 250,
-    currentMeter: 240,
-    nextDue: 250,
-    priority: 'high',
-    estimatedDuration: 2,
-    assignedTo: 'Mike Johnson',
-    status: 'upcoming'
-  },
-  {
-    id: '2',
-    equipmentId: 'HRV-003',
-    equipmentName: 'Case IH 8250 Combine',
-    maintenanceType: 'Belt Inspection',
-    scheduledDate: '2024-01-22T14:00:00Z',
-    lastPerformed: '2023-12-15T14:00:00Z',
-    intervalType: 'calendar',
-    intervalValue: 30,
-    currentMeter: null,
-    nextDue: null,
-    priority: 'medium',
-    estimatedDuration: 1,
-    assignedTo: 'Sarah Wilson',
-    status: 'in_progress'
-  },
-  {
-    id: '3',
-    equipmentId: 'SPR-005',
-    equipmentName: 'Apache AS1240 Sprayer',
-    maintenanceType: 'Filter Replacement',
-    scheduledDate: '2024-01-30T09:00:00Z',
-    lastPerformed: '2024-01-05T09:00:00Z',
-    intervalType: 'hours',
-    intervalValue: 100,
-    currentMeter: 85,
-    nextDue: 100,
-    priority: 'medium',
-    estimatedDuration: 1.5,
-    assignedTo: 'David Brown',
-    status: 'scheduled'
-  },
-  {
-    id: '4',
-    equipmentId: 'TLL-007',
-    equipmentName: 'Kubota M7-172 Tiller',
-    maintenanceType: 'Blade Sharpening',
-    scheduledDate: '2024-01-18T08:00:00Z',
-    lastPerformed: '2024-01-18T10:30:00Z',
-    intervalType: 'calendar',
-    intervalValue: 14,
-    currentMeter: null,
-    nextDue: null,
-    priority: 'low',
-    estimatedDuration: 3,
-    assignedTo: 'Tom Anderson',
-    status: 'completed'
-  }
-]
-
-const predictiveData = [
-  {
-    equipmentId: 'TRC-001',
-    equipmentName: 'John Deere 8370R Tractor',
-    component: 'Hydraulic Pump',
-    failureProbability: 0.75,
-    predictedFailureDate: '2024-02-15T00:00:00Z',
-    recommendedAction: 'Schedule preventive maintenance',
-    confidenceLevel: 0.87
-  },
-  {
-    equipmentId: 'HRV-003',
-    equipmentName: 'Case IH 8250 Combine',
-    component: 'Drive Belt',
-    failureProbability: 0.45,
-    predictedFailureDate: '2024-03-10T00:00:00Z',
-    recommendedAction: 'Monitor closely',
-    confidenceLevel: 0.72
-  }
-]
+import MaintenanceModal from '../components/modals/MaintenanceModal'
+import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
+import type { MaintenanceSchedule } from '../types/database'
 
 export default function Maintenance() {
+  const { items: maintenanceItems, loading, create, update, delete: deleteItem, refresh } = useSupabaseCRUD<MaintenanceSchedule>('maintenance_schedules')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [showModal, setShowModal] = useState(false)
+  const [editingItem, setEditingItem] = useState<MaintenanceSchedule | null>(null)
 
-  const filteredMaintenance = mockMaintenanceItems.filter(item => {
-    const matchesSearch = item.equipmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.maintenanceType.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  const filteredMaintenance = maintenanceItems.filter(item => {
+    const matchesSearch = item.equipment_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.maintenance_type.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  // Get predictive maintenance items (high failure probability)
+  const predictiveData = maintenanceItems
+    .filter(item => item.failure_probability && item.failure_probability >= 40)
+    .map(item => ({
+      equipmentId: item.id,
+      equipmentName: item.equipment_name,
+      component: item.maintenance_type,
+      failureProbability: item.failure_probability / 100,
+      predictedFailureDate: item.next_due_date,
+      recommendedAction: item.failure_probability >= 70 ? 'Schedule preventive maintenance' : 'Monitor closely',
+      confidenceLevel: 0.85
+    }))
+
+  // CRUD handlers
+  const handleCreateOrUpdateMaintenance = async (data: Partial<MaintenanceSchedule>) => {
+    if (editingItem) {
+      await update(editingItem.id, data)
+    } else {
+      await create({
+        ...data,
+        status: 'scheduled',
+        failure_probability: 0
+      } as Omit<MaintenanceSchedule, 'id' | 'created_at' | 'updated_at'>)
+    }
+    await refresh()
+  }
+
+  const handleMaintenanceFormSubmit = async (formData: { 
+    equipment_name: string
+    maintenance_type: string
+    interval_type: 'hours' | 'calendar'
+    interval_value: number
+    current_hours: number | undefined
+    next_due_date: string
+    priority: 'low' | 'medium' | 'high'
+    assigned_technician: string
+    estimated_cost: number | undefined
+    notes: string | undefined
+  }) => {
+    await handleCreateOrUpdateMaintenance({
+      ...formData,
+      current_hours: formData.current_hours !== undefined ? formData.current_hours : null,
+      estimated_cost: formData.estimated_cost !== undefined ? formData.estimated_cost : null,
+      notes: formData.notes !== undefined ? formData.notes : null
+    })
+  }
+
+  const handleEditItem = (item: MaintenanceSchedule) => {
+    setEditingItem(item)
+    setShowModal(true)
+  }
+
+  const handleDeleteItem = async (id: string) => {
+    if (confirm('Are you sure you want to delete this maintenance schedule?')) {
+      await deleteItem(id)
+    }
+  }
+
+  const handleMarkComplete = async (item: MaintenanceSchedule) => {
+    await update(item.id, { status: 'completed' })
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setEditingItem(null)
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -170,7 +159,10 @@ export default function Maintenance() {
               Calendar
             </button>
           </div>
-          <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
             <Plus className="h-5 w-5 mr-2" />
             Schedule Maintenance
           </button>
@@ -193,17 +185,43 @@ export default function Maintenance() {
         </select>
       </div>
 
-      {viewMode === 'calendar' ? (
-        <MaintenanceCalendar maintenanceItems={filteredMaintenance} />
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading maintenance schedules...</p>
+          </div>
+        </div>
+      ) : filteredMaintenance.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg shadow-md">
+          <p className="text-gray-500 text-lg">No maintenance schedules found</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {searchTerm || statusFilter !== 'all'
+              ? 'Try adjusting your filters'
+              : 'Schedule your first maintenance to get started'}
+          </p>
+        </div>
+      ) : viewMode === 'calendar' ? (
+        <MaintenanceCalendar 
+          maintenanceItems={filteredMaintenance.map(item => ({
+            id: item.id,
+            equipmentName: item.equipment_name,
+            maintenanceType: item.maintenance_type,
+            scheduledDate: item.next_due_date,
+            priority: item.priority,
+            status: item.status
+          }))} 
+        />
       ) : (
         <div className="space-y-6">
           {/* Predictive Maintenance Alerts */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-              Predictive Maintenance Alerts
-            </h3>
-            <div className="space-y-4">
+          {predictiveData.length > 0 && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
+                Predictive Maintenance Alerts
+              </h3>
+              <div className="space-y-4">
               {predictiveData.map((prediction, index) => (
                 <motion.div
                   key={prediction.equipmentId}
@@ -229,6 +247,7 @@ export default function Maintenance() {
               ))}
             </div>
           </div>
+          )}
 
           {/* Maintenance List */}
           <div className="space-y-4">
@@ -243,7 +262,7 @@ export default function Maintenance() {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{item.maintenanceType}</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">{item.maintenance_type}</h3>
                       <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
                         {item.status.replace('_', ' ').charAt(0).toUpperCase() + item.status.replace('_', ' ').slice(1)}
                       </div>
@@ -251,52 +270,52 @@ export default function Maintenance() {
                         {item.priority}
                       </div>
                     </div>
-                    <p className="text-gray-600">{item.equipmentName}</p>
+                    <p className="text-gray-600">{item.equipment_name}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                   <div>
-                    <span className="text-sm text-gray-500">Scheduled:</span>
+                    <span className="text-sm text-gray-500">Next Due:</span>
                     <p className="font-medium">
-                      {new Date(item.scheduledDate).toLocaleDateString()}
+                      {new Date(item.next_due_date).toLocaleDateString()}
                     </p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-500">Assigned To:</span>
-                    <p className="font-medium">{item.assignedTo}</p>
+                    <p className="font-medium">{item.assigned_technician}</p>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-500">Duration:</span>
-                    <p className="font-medium">{item.estimatedDuration}h</p>
+                    <span className="text-sm text-gray-500">Interval:</span>
+                    <p className="font-medium">{item.interval_value} {item.interval_type}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-500">
-                      {item.intervalType === 'hours' ? 'Hours:' : 'Last Done:'}
+                      {item.interval_type === 'hours' ? 'Current Hours:' : 'Type:'}
                     </span>
                     <p className="font-medium">
-                      {item.intervalType === 'hours' 
-                        ? `${item.currentMeter}/${item.nextDue}`
-                        : new Date(item.lastPerformed).toLocaleDateString()
+                      {item.interval_type === 'hours' 
+                        ? item.current_hours || 0
+                        : item.interval_type
                       }
                     </p>
                   </div>
                 </div>
 
-                {item.intervalType === 'hours' && (
+                {item.interval_type === 'hours' && item.current_hours !== undefined && (
                   <div className="mb-4">
                     <div className="flex justify-between text-sm text-gray-600 mb-1">
                       <span>Progress to next service</span>
-                      <span>{item.currentMeter}/{item.nextDue} hours</span>
+                      <span>{item.current_hours ?? 0}/{item.interval_value} hours</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
                         className={`h-2 rounded-full transition-all duration-300 ${
-                          (item.currentMeter! / item.nextDue!) >= 0.9 ? 'bg-red-500' :
-                          (item.currentMeter! / item.nextDue!) >= 0.7 ? 'bg-yellow-500' : 'bg-green-500'
+                          ((item.current_hours ?? 0) / item.interval_value) >= 0.9 ? 'bg-red-500' :
+                          ((item.current_hours ?? 0) / item.interval_value) >= 0.7 ? 'bg-yellow-500' : 'bg-green-500'
                         }`}
                         style={{ 
-                          width: `${Math.min((item.currentMeter! / item.nextDue!) * 100, 100)}%` 
+                          width: `${Math.min(((item.current_hours ?? 0) / item.interval_value) * 100, 100)}%` 
                         }}
                       />
                     </div>
@@ -305,17 +324,29 @@ export default function Maintenance() {
 
                 <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                   <div className="text-sm text-gray-500">
-                    Last performed: {new Date(item.lastPerformed).toLocaleDateString()}
+                    Status: {item.status.replace('_', ' ')}
                   </div>
                   <div className="flex gap-2">
-                    <button className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                      View Details
+                    <button 
+                      onClick={() => handleEditItem(item)}
+                      className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Edit
                     </button>
                     {item.status !== 'completed' && (
-                      <button className="px-3 py-1 text-sm text-green-600 hover:text-green-700 font-medium">
+                      <button 
+                        onClick={() => { void handleMarkComplete(item) }}
+                        className="px-3 py-1 text-sm text-green-600 hover:text-green-700 font-medium"
+                      >
                         Mark Complete
                       </button>
                     )}
+                    <button 
+                      onClick={() => { void handleDeleteItem(item.id) }}
+                      className="px-3 py-1 text-sm text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -323,6 +354,15 @@ export default function Maintenance() {
           </div>
         </div>
       )}
+
+      {/* Maintenance Modal */}
+      <MaintenanceModal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        onSubmit={handleMaintenanceFormSubmit}
+        item={editingItem}
+        loading={loading}
+      />
     </div>
   )
 }

@@ -1,82 +1,68 @@
 
 import { motion } from 'framer-motion'
 import { AlertTriangle, CheckCircle, Filter, Package, Plus, Scan, Search } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ScanModal from '../components/ScanModal'
-import { useInventory } from '../hooks/useInventory'
-
-const mockInventoryItems = [
-  {
-    id: '1',
-    sku: 'HYD-001',
-    name: 'Hydraulic Fluid - Premium Grade',
-    category: 'Fluids',
-    currentStock: 45,
-    minStock: 20,
-    maxStock: 100,
-    unit: 'Liters',
-    location: 'Warehouse A-1',
-    lastUpdated: '2024-01-15T10:30:00Z',
-    status: 'in_stock'
-  },
-  {
-    id: '2',
-    sku: 'FLT-002',
-    name: 'Air Filter - Heavy Duty',
-    category: 'Filters',
-    currentStock: 8,
-    minStock: 15,
-    maxStock: 50,
-    unit: 'Units',
-    location: 'Warehouse B-2',
-    lastUpdated: '2024-01-14T14:20:00Z',
-    status: 'low_stock'
-  },
-  {
-    id: '3',
-    sku: 'SPR-003',
-    name: 'Spark Plugs - Set of 4',
-    category: 'Engine Parts',
-    currentStock: 0,
-    minStock: 10,
-    maxStock: 40,
-    unit: 'Sets',
-    location: 'Warehouse C-1',
-    lastUpdated: '2024-01-13T09:15:00Z',
-    status: 'out_of_stock'
-  },
-  {
-    id: '4',
-    sku: 'TIR-004',
-    name: 'Tractor Tire - 18.4-30',
-    category: 'Tires',
-    currentStock: 12,
-    minStock: 5,
-    maxStock: 20,
-    unit: 'Units',
-    location: 'Warehouse D-1',
-    lastUpdated: '2024-01-15T16:45:00Z',
-    status: 'in_stock'
-  }
-]
+import InventoryModal from '../components/modals/InventoryModal'
+import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
+import type { InventoryFormData, InventoryItem } from '../types/database'
 
 export default function Inventory() {
+  const { items: inventoryItems, loading, create, update, delete: deleteItem, refresh } = useSupabaseCRUD<InventoryItem>('inventory_items')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showScanModal, setShowScanModal] = useState(false)
-  
-  // Future implementation - will use these to fetch from Supabase
-  const _inventory = useInventory()
-  void _inventory // Suppress unused warning
+  const [showInventoryModal, setShowInventoryModal] = useState(false)
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
 
-  const filteredItems = mockInventoryItems.filter(item => {
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  const filteredItems = inventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.sku.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory
     return matchesSearch && matchesCategory
   })
 
-  const categories = ['all', ...Array.from(new Set(mockInventoryItems.map(item => item.category)))]
+  const categories = ['all', ...Array.from(new Set(inventoryItems.map(item => item.category)))]
+
+  // CRUD handlers
+  const handleCreateOrUpdateItem = async (data: InventoryFormData) => {
+    if (editingItem) {
+      await update(editingItem.id, data)
+    } else {
+      // Calculate status based on stock levels
+      const status = data.current_stock === 0 ? 'out_of_stock' : 
+                     data.current_stock <= data.min_stock ? 'low_stock' : 'in_stock'
+      
+      await create({
+        ...data,
+        supplier: data.supplier || null,
+        unit_cost: data.unit_cost ?? null,
+        status,
+        last_updated: new Date().toISOString()
+      })
+    }
+    await refresh()
+  }
+
+  const handleEditItem = (item: InventoryItem) => {
+    setEditingItem(item)
+    setShowInventoryModal(true)
+  }
+
+  const handleDeleteItem = async (id: string) => {
+    if (confirm('Are you sure you want to delete this item?')) {
+      await deleteItem(id)
+    }
+  }
+
+  const handleCloseModal = () => {
+    setShowInventoryModal(false)
+    setEditingItem(null)
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -122,7 +108,7 @@ export default function Inventory() {
             Scan Item
           </button>
           <button
-            onClick={() => console.log('Add new item')}
+            onClick={() => setShowInventoryModal(true)}
             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Plus className="h-5 w-5 mr-2" />
@@ -147,8 +133,27 @@ export default function Inventory() {
         </select>
       </div>
 
-      {/* Inventory Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading inventory...</p>
+          </div>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg shadow-md">
+          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">No inventory items found</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {searchTerm || selectedCategory !== 'all'
+              ? 'Try adjusting your filters'
+              : 'Add your first inventory item to get started'}
+          </p>
+        </div>
+      ) : (
+        /* Inventory Grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredItems.map((item, index) => (
           <motion.div
             key={item.id}
@@ -171,12 +176,12 @@ export default function Inventory() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Current Stock:</span>
-                <span className="text-sm font-medium">{item.currentStock} {item.unit}</span>
+                <span className="text-sm font-medium">{item.current_stock} {item.unit}</span>
               </div>
               
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Min Stock:</span>
-                <span className="text-sm font-medium">{item.minStock} {item.unit}</span>
+                <span className="text-sm font-medium">{item.min_stock} {item.unit}</span>
               </div>
               
               <div className="flex justify-between">
@@ -188,24 +193,34 @@ export default function Inventory() {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
                   className={`h-2 rounded-full transition-all duration-300 ${
-                    item.currentStock === 0 ? 'bg-red-500' :
-                    item.currentStock <= item.minStock ? 'bg-yellow-500' : 'bg-green-500'
+                    item.current_stock === 0 ? 'bg-red-500' :
+                    item.current_stock <= item.min_stock ? 'bg-yellow-500' : 'bg-green-500'
                   }`}
                   style={{ 
-                    width: `${Math.min((item.currentStock / item.maxStock) * 100, 100)}%` 
+                    width: `${Math.min((item.current_stock / item.max_stock) * 100, 100)}%` 
                   }}
                 />
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <button className="w-full text-green-600 hover:text-green-700 text-sm font-medium">
-                Update Stock
+            <div className="mt-4 pt-4 border-t border-gray-200 flex gap-2">
+              <button 
+                onClick={() => handleEditItem(item)}
+                className="flex-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                Edit
+              </button>
+              <button 
+                onClick={() => { void handleDeleteItem(item.id) }}
+                className="flex-1 text-red-600 hover:text-red-700 text-sm font-medium"
+              >
+                Delete
               </button>
             </div>
           </motion.div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Scan Modal */}
       {showScanModal && (
@@ -218,6 +233,15 @@ export default function Inventory() {
           }}
         />
       )}
+
+      {/* Inventory Modal */}
+      <InventoryModal
+        isOpen={showInventoryModal}
+        onClose={handleCloseModal}
+        onSubmit={handleCreateOrUpdateItem}
+        item={editingItem}
+        loading={loading}
+      />
     </div>
   )
 }

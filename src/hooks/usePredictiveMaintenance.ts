@@ -1,13 +1,32 @@
 
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
+
+interface PredictiveMaintenanceRow {
+  id: string
+  asset_id: string
+  component_name: string
+  failure_probability: number
+  predicted_failure_date: string
+  confidence_level: number
+  recommended_action: string
+  maintenance_priority: number
+  last_calculated: string
+  created_at: string
+  updated_at: string
+  assets?: {
+    id: string
+    name: string
+    type: string
+  }
+}
 
 interface PredictiveMaintenanceData {
   id: string
   asset_id: string
-  asset_name?: string
-  asset_type?: string
+  asset_name?: string | undefined
+  asset_type?: string | undefined
   component_name: string
   failure_probability: number
   predicted_failure_date: string
@@ -49,48 +68,6 @@ export const usePredictiveMaintenance = (): UsePredictiveMaintenanceReturn => {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Fetch predictive maintenance data
-  const fetchPredictions = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      // Fetch predictive maintenance data with asset information
-      const { data: predictiveData, error: predictiveError } = await supabase
-        .from('predictive_maintenance')
-        .select(`
-          *,
-          assets!inner(
-            id,
-            name,
-            type
-          )
-        `)
-        .order('failure_probability', { ascending: false })
-
-      if (predictiveError) throw predictiveError
-
-      // Transform data to include asset information
-      const transformedData = predictiveData?.map(item => ({
-        ...item,
-        asset_name: item.assets?.name,
-        asset_type: item.assets?.type
-      })) || []
-
-      setPredictions(transformedData)
-      
-      // Calculate KPIs
-      calculateKPIs(transformedData)
-
-    } catch (err: any) {
-      console.error('Error fetching predictive maintenance data:', err)
-      setError(err.message || 'Failed to fetch predictive maintenance data')
-      toast.error('Failed to load predictive maintenance data')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
 
   // Calculate maintenance KPIs
   const calculateKPIs = useCallback((data: PredictiveMaintenanceData[]) => {
@@ -155,6 +132,59 @@ export const usePredictiveMaintenance = (): UsePredictiveMaintenanceReturn => {
     })
   }, [])
 
+  // Fetch predictive maintenance data
+  const fetchPredictions = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Fetch predictive maintenance data with asset information
+      const { data: predictiveData, error: predictiveError } = await supabase
+        .from('predictive_maintenance')
+        .select(`
+          *,
+          assets!inner(
+            id,
+            name,
+            type
+          )
+        `)
+        .order('failure_probability', { ascending: false })
+
+      if (predictiveError) throw predictiveError
+
+      // Transform data to include asset information
+      const transformedData: PredictiveMaintenanceData[] = (predictiveData as PredictiveMaintenanceRow[] | null)?.map(item => ({
+        id: item.id,
+        asset_id: item.asset_id,
+        asset_name: item.assets?.name,
+        asset_type: item.assets?.type,
+        component_name: item.component_name,
+        failure_probability: item.failure_probability,
+        predicted_failure_date: item.predicted_failure_date,
+        confidence_level: item.confidence_level,
+        recommended_action: item.recommended_action,
+        maintenance_priority: item.maintenance_priority,
+        last_calculated: item.last_calculated,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      })) || []
+
+      setPredictions(transformedData)
+      
+      // Calculate KPIs
+      calculateKPIs(transformedData)
+
+    } catch (err) {
+      console.error('Error fetching predictive maintenance data:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch predictive maintenance data'
+      setError(errorMessage)
+      toast.error('Failed to load predictive maintenance data')
+    } finally {
+      setLoading(false)
+    }
+  }, [calculateKPIs])
+
   // Update predictive maintenance model
   const updatePredictiveModel = useCallback(async () => {
     try {
@@ -170,9 +200,10 @@ export const usePredictiveMaintenance = (): UsePredictiveMaintenanceReturn => {
       // Refresh data after update
       await fetchPredictions()
       
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error updating predictive model:', err)
-      setError(err.message || 'Failed to update predictive model')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update predictive model'
+      setError(errorMessage)
       toast.error('Failed to update predictive model')
     } finally {
       setLoading(false)
@@ -207,7 +238,7 @@ export const usePredictiveMaintenance = (): UsePredictiveMaintenanceReturn => {
 
   // Initialize data on mount
   useEffect(() => {
-    fetchPredictions()
+    void fetchPredictions()
   }, [fetchPredictions])
 
   // Set up real-time subscription for predictive maintenance updates
@@ -223,13 +254,13 @@ export const usePredictiveMaintenance = (): UsePredictiveMaintenanceReturn => {
         },
         () => {
           // Refresh data when changes occur
-          fetchPredictions()
+          void fetchPredictions()
         }
       )
       .subscribe()
 
     return () => {
-      subscription.unsubscribe()
+      void subscription.unsubscribe()
     }
   }, [fetchPredictions])
 

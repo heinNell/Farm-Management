@@ -1,76 +1,11 @@
 
-import { useState } from 'react'
-import {Plus, Search, MapPin, Clock, User, AlertTriangle} from 'lucide-react'
 import { motion } from 'framer-motion'
+import { AlertTriangle, Clock, MapPin, Plus, Search, User } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import JobKanban from '../components/JobKanban'
-
-const mockJobs = [
-  {
-    id: '1',
-    title: 'Irrigation System Maintenance',
-    description: 'Check and clean all irrigation nozzles in Field A',
-    priority: 'high',
-    status: 'todo',
-    assignedTo: 'John Smith',
-    location: 'Field A - North Section',
-    estimatedHours: 4,
-    dueDate: '2024-01-20T17:00:00Z',
-    createdAt: '2024-01-15T09:00:00Z',
-    tags: ['maintenance', 'irrigation']
-  },
-  {
-    id: '2',
-    title: 'Soil pH Testing',
-    description: 'Conduct comprehensive soil pH testing across all fields',
-    priority: 'medium',
-    status: 'in_progress',
-    assignedTo: 'Sarah Wilson',
-    location: 'Multiple Fields',
-    estimatedHours: 6,
-    dueDate: '2024-01-22T17:00:00Z',
-    createdAt: '2024-01-14T10:30:00Z',
-    tags: ['testing', 'soil']
-  },
-  {
-    id: '3',
-    title: 'Equipment Safety Inspection',
-    description: 'Monthly safety inspection for all tractors and harvesters',
-    priority: 'high',
-    status: 'in_progress',
-    assignedTo: 'Mike Johnson',
-    location: 'Equipment Yard',
-    estimatedHours: 8,
-    dueDate: '2024-01-18T17:00:00Z',
-    createdAt: '2024-01-12T08:00:00Z',
-    tags: ['inspection', 'safety']
-  },
-  {
-    id: '4',
-    title: 'Fertilizer Application',
-    description: 'Apply nitrogen fertilizer to corn fields',
-    priority: 'medium',
-    status: 'completed',
-    assignedTo: 'David Brown',
-    location: 'Fields C, D, E',
-    estimatedHours: 12,
-    dueDate: '2024-01-16T17:00:00Z',
-    createdAt: '2024-01-10T07:00:00Z',
-    tags: ['fertilizer', 'crop-care']
-  },
-  {
-    id: '5',
-    title: 'Fence Repair',
-    description: 'Repair damaged fence sections along the north boundary',
-    priority: 'low',
-    status: 'review',
-    assignedTo: 'Tom Anderson',
-    location: 'North Boundary',
-    estimatedHours: 3,
-    dueDate: '2024-01-25T17:00:00Z',
-    createdAt: '2024-01-13T11:00:00Z',
-    tags: ['maintenance', 'infrastructure']
-  }
-]
+import JobModal from '../components/modals/JobModal'
+import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
+import type { JobCard, JobFormData } from '../types/database'
 
 const columns = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
@@ -80,21 +15,70 @@ const columns = [
 ]
 
 export default function Jobs() {
+  const { items: jobs, loading, create, update, delete: deleteJob, refresh } = useSupabaseCRUD<JobCard>('job_cards')
   const [searchTerm, setSearchTerm] = useState('')
-  const [priorityFilter, setPriorityFilter] = useState('all')
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
+  const [showModal, setShowModal] = useState(false)
+  const [editingJob, setEditingJob] = useState<JobCard | null>(null)
 
-  const filteredJobs = mockJobs.filter(job => {
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.location.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesPriority = priorityFilter === 'all' || job.priority === priorityFilter
-    const matchesAssignee = assigneeFilter === 'all' || job.assignedTo === assigneeFilter
+    const matchesAssignee = assigneeFilter === 'all' || job.assigned_to === assigneeFilter
     return matchesSearch && matchesPriority && matchesAssignee
   })
 
-  const assignees = Array.from(new Set(mockJobs.map(job => job.assignedTo)))
+  const assignees = Array.from(new Set(jobs.map(job => job.assigned_to)))
+
+  // Handler functions for CRUD operations
+  const handleDeleteJob = async (id: string) => {
+    if (confirm('Are you sure you want to delete this job?')) {
+      await deleteJob(id)
+    }
+  }
+
+  const handleUpdateStatus = async (id: string, newStatus: JobCard['status']) => {
+    await update(id, { status: newStatus })
+  }
+
+  const handleCreateOrUpdateJob = async (data: JobFormData) => {
+    if (editingJob) {
+      await update(editingJob.id, {
+        ...data,
+        asset_id: data.asset_id ?? null,
+        hour_meter_reading: data.hour_meter_reading ?? null
+      })
+    } else {
+      await create({
+        ...data,
+        status: 'todo',
+        actual_hours: data.actual_hours ?? null,
+        notes: data.notes ?? null,
+        completed_date: null,
+        asset_id: data.asset_id ?? null,
+        hour_meter_reading: data.hour_meter_reading ?? null
+      })
+    }
+    await refresh()
+  }
+
+  const handleEditJob = (job: JobCard) => {
+    setEditingJob(job)
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setEditingJob(null)
+  }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -149,7 +133,10 @@ export default function Jobs() {
               List
             </button>
           </div>
-          <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
             <Plus className="h-5 w-5 mr-2" />
             New Job
           </button>
@@ -160,7 +147,7 @@ export default function Jobs() {
       <div className="flex flex-wrap gap-4">
         <select
           value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
+          onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
           className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
         >
           <option value="all">All Priorities</option>
@@ -182,8 +169,38 @@ export default function Jobs() {
       </div>
 
       {/* Content */}
-      {viewMode === 'kanban' ? (
-        <JobKanban jobs={filteredJobs} columns={columns} />
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading jobs...</p>
+          </div>
+        </div>
+      ) : filteredJobs.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg shadow-md">
+          <p className="text-gray-500 text-lg">No jobs found</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {searchTerm || priorityFilter !== 'all' || assigneeFilter !== 'all'
+              ? 'Try adjusting your filters'
+              : 'Create your first job to get started'}
+          </p>
+        </div>
+      ) : viewMode === 'kanban' ? (
+        <JobKanban 
+          jobs={filteredJobs.map(job => ({
+            id: job.id,
+            title: job.title,
+            description: job.description,
+            priority: job.priority,
+            status: job.status,
+            assignedTo: job.assigned_to,
+            location: job.location,
+            estimatedHours: job.estimated_hours,
+            dueDate: job.due_date,
+            tags: job.tags
+          }))} 
+          columns={columns} 
+        />
       ) : (
         <div className="space-y-4">
           {filteredJobs.map((job, index) => (
@@ -201,7 +218,7 @@ export default function Jobs() {
                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(job.priority)}`}>
                       {job.priority}
                     </div>
-                    {isOverdue(job.dueDate) && job.status !== 'completed' && (
+                    {isOverdue(job.due_date) && job.status !== 'completed' && (
                       <div className="flex items-center px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">
                         <AlertTriangle className="h-3 w-3 mr-1" />
                         Overdue
@@ -215,7 +232,7 @@ export default function Jobs() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div className="flex items-center">
                   <User className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-600">{job.assignedTo}</span>
+                  <span className="text-sm text-gray-600">{job.assigned_to}</span>
                 </div>
                 <div className="flex items-center">
                   <MapPin className="h-4 w-4 text-gray-400 mr-2" />
@@ -223,11 +240,11 @@ export default function Jobs() {
                 </div>
                 <div className="flex items-center">
                   <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-600">{job.estimatedHours}h estimated</span>
+                  <span className="text-sm text-gray-600">{job.estimated_hours}h estimated</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-600">
-                    Due: {new Date(job.dueDate).toLocaleDateString()}
+                    Due: {new Date(job.due_date).toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -245,11 +262,28 @@ export default function Jobs() {
                   Status: <span className="font-medium capitalize">{job.status.replace('_', ' ')}</span>
                 </div>
                 <div className="flex gap-2">
-                  <button className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    View Details
+                  <button 
+                    onClick={() => handleEditJob(job)}
+                    className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Edit
                   </button>
-                  <button className="px-3 py-1 text-sm text-green-600 hover:text-green-700 font-medium">
+                  <button 
+                    onClick={() => {
+                      const nextStatus = job.status === 'todo' ? 'in_progress' : 
+                                       job.status === 'in_progress' ? 'review' : 
+                                       job.status === 'review' ? 'completed' : 'todo'
+                      void handleUpdateStatus(job.id, nextStatus)
+                    }}
+                    className="px-3 py-1 text-sm text-green-600 hover:text-green-700 font-medium"
+                  >
                     Update Status
+                  </button>
+                  <button 
+                    onClick={() => { void handleDeleteJob(job.id) }}
+                    className="px-3 py-1 text-sm text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
@@ -257,6 +291,15 @@ export default function Jobs() {
           ))}
         </div>
       )}
+
+      {/* Job Modal */}
+      <JobModal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        onSubmit={handleCreateOrUpdateJob}
+        item={editingJob}
+        loading={loading}
+      />
     </div>
   )
 }

@@ -1,24 +1,39 @@
-import { motion } from 'framer-motion'
-import { AlertCircle, Loader, LogIn, LogOut, Shield, User } from 'lucide-react'
-import { useState } from 'react'
-import { useAuth } from '../../hooks/useAuth'
-import { AuthContext } from './AuthContext'
+import { motion } from 'framer-motion';
+import { AlertCircle, Loader, LogIn, LogOut, Shield, User } from 'lucide-react';
+import { useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
+import { AuthContext } from './AuthContext';
 
 interface AuthProviderProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 export default function AuthProvider({ children }: AuthProviderProps) {
-  const authState = useAuth()
-  const { user, isAuthenticated, userRole, loading, signIn, signOut } = authState
+  const authState = useAuth();
+  const { user, isAuthenticated, userRole, loading, signIn, signOut } = authState;
 
   // State for login form
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [formLoading, setFormLoading] = useState(false)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
 
-  // Loading state
+  // Move loading state check into rendering logic
+  const handleSignIn = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    setError(null);
+    setFormLoading(true);
+    try {
+      await signIn(email, password);
+    } catch (err) {
+      setError('Invalid login credentials. Please try again.');
+      console.error('Sign in error:', err);
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Show loading spinner while loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -31,25 +46,11 @@ export default function AuthProvider({ children }: AuthProviderProps) {
           <p className="text-gray-600">Initializing secure session...</p>
         </motion.div>
       </div>
-    )
+    );
   }
 
   // Authentication required - show login form
   if (!isAuthenticated) {
-    const handleSignIn = async (e: React.FormEvent): Promise<void> => {
-      e.preventDefault()
-      setError(null)
-      setFormLoading(true)
-      try {
-        await signIn(email, password)
-      } catch (err) {
-        setError('Invalid login credentials. Please try again.')
-        console.error('Sign in error:', err)
-      } finally {
-        setFormLoading(false)
-      }
-    }
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <motion.div
@@ -69,7 +70,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
             </p>
           </div>
 
-          <form onSubmit={(e) => { void handleSignIn(e) }} className="space-y-4">
+          <form onSubmit={(e) => { void handleSignIn(e); }} className="space-y-4">
             {error && (
               <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
                 <AlertCircle className="h-4 w-4" />
@@ -128,16 +129,16 @@ export default function AuthProvider({ children }: AuthProviderProps) {
           </div>
         </motion.div>
       </div>
-    )
+    );
   }
 
   const handleSignOut = async (): Promise<void> => {
     try {
-      await signOut()
+      await signOut();
     } catch (error) {
-      console.error('Sign out error:', error)
+      console.error('Sign out error:', error);
     }
-  }
+  };
 
   // Authenticated - render app with header
   return (
@@ -153,7 +154,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
                   Farm Management System
                 </span>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2 text-sm">
                   <User className="h-4 w-4 text-gray-500" />
@@ -168,9 +169,9 @@ export default function AuthProvider({ children }: AuthProviderProps) {
                     {userRole ?? 'USER'}
                   </span>
                 </div>
-                
+
                 <button
-                  onClick={() => { void handleSignOut() }}
+                  onClick={() => { void handleSignOut(); }}
                   className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   title="Sign Out"
                 >
@@ -187,5 +188,5 @@ export default function AuthProvider({ children }: AuthProviderProps) {
         </div>
       </div>
     </AuthContext.Provider>
-  )
+  );
 }

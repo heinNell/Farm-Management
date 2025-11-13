@@ -45,12 +45,19 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
     try {
       setState(prev => ({ ...prev, loading: true, error: null }))
       
+      console.log(`useSupabaseCRUD: Fetching items from table: ${tableName}`)
+      
       const { data, error } = await supabase
         .from(tableName)
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error(`useSupabaseCRUD: Error fetching from ${tableName}:`, error)
+        throw error
+      }
+
+      console.log(`useSupabaseCRUD: Fetched ${data?.length || 0} items from ${tableName}`, data)
 
       setState(prev => ({
         ...prev,
@@ -73,13 +80,20 @@ export function useSupabaseCRUD<T extends { id: string; created_at: string; upda
     try {
       setState(prev => ({ ...prev, creating: true, error: null }))
 
+      console.log(`useSupabaseCRUD: Creating item in ${tableName}:`, data)
+
       const { data: newItem, error } = await supabase
         .from(tableName)
         .insert([data])
         .select()
         .single() as { data: T | null; error: PostgrestError | null }
 
-      if (error) throw error
+      if (error) {
+        console.error(`useSupabaseCRUD: Error creating in ${tableName}:`, error)
+        throw error
+      }
+
+      console.log(`useSupabaseCRUD: Created item in ${tableName}:`, newItem)
 
       setState(prev => ({
         ...prev,

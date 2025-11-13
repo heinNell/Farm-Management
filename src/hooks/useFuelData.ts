@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase, TABLES } from '../lib/supabase'
-import type { Asset, ComprehensiveFuelKPI, FuelPrice, FuelRecord, OperatingSession } from '../types/fuel'
 import type {
+  Asset,
+  ComprehensiveFuelKPI,
+  FuelPrice,
+  FuelRecord,
   Numeric,
+  OperatingSession,
   SupabaseAssetRow,
   SupabaseFuelPriceRow,
   SupabaseFuelRecordRow,
   SupabaseOperatingSessionRow,
-} from '../types/supabase'
+} from '../types/database'
 import { FuelKPICalculator } from '../utils/fuelCalculations'
 
 type AssetInput = Omit<Asset, 'id' | 'created_at' | 'updated_at'>
@@ -148,6 +152,8 @@ const prepareFuelPricePayload = (price: Partial<FuelPriceInput>) => ({
 })
 
 export const useFuelData = () => {
+  console.log('useFuelData: Hook initialized')
+  
   const [assets, setAssets] = useState<Asset[]>([])
   const [fuelRecords, setFuelRecords] = useState<FuelRecord[]>([])
   const [operatingSessions, setOperatingSessions] = useState<OperatingSession[]>([])
@@ -158,12 +164,19 @@ export const useFuelData = () => {
   const fetchAllData = useCallback(async () => {
     setLoading(true)
     try {
+      console.log('useFuelData: Starting to fetch all data...')
+      
       const [assetsResponse, recordsResponse, sessionsResponse, pricesResponse] = await Promise.all([
         supabase.from(TABLES.ASSETS).select('*').order('created_at', { ascending: false }),
         supabase.from(TABLES.FUEL_RECORDS).select('*').order('date', { ascending: false }),
         supabase.from(TABLES.OPERATING_SESSIONS).select('*').order('session_start', { ascending: false }),
         supabase.from(TABLES.FUEL_PRICES).select('*').order('effective_date', { ascending: false }),
       ])
+
+      console.log('useFuelData: Assets response:', assetsResponse.error || `${assetsResponse.data?.length} assets`)
+      console.log('useFuelData: Records response:', recordsResponse.error || `${recordsResponse.data?.length} records`)
+      console.log('useFuelData: Sessions response:', sessionsResponse.error || `${sessionsResponse.data?.length} sessions`)
+      console.log('useFuelData: Prices response:', pricesResponse.error || `${pricesResponse.data?.length} prices`)
 
       if (assetsResponse.error) throw assetsResponse.error
       if (recordsResponse.error) throw recordsResponse.error
@@ -180,6 +193,7 @@ export const useFuelData = () => {
       const mappedSessions = sessionRows.map(mapOperatingSessionRow)
       const mappedPrices = priceRows.map(mapFuelPriceRow)
 
+      console.log('useFuelData: Setting assets:', mappedAssets.length)
       setAssets(mappedAssets)
       setFuelRecords(mappedRecords)
       setOperatingSessions(mappedSessions)

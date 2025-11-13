@@ -1,5 +1,5 @@
 
-import { Asset, ComprehensiveFuelKPI, FuelRecord, OperatingSession } from '../types/fuel'
+import { Asset, ComprehensiveFuelKPI, FuelRecord, OperatingSession } from '../types/database'
 
 export class FuelKPICalculator {
   private assets: Asset[]

@@ -33,7 +33,7 @@ export default function EnhancedInventory() {
     update,
     delete: deleteItem,
     search
-  } = useSupabaseCRUD<InventoryItem>('inventory')
+  } = useSupabaseCRUD<InventoryItem>('inventory_items')
 
   // Filter and search items
   const filteredItems = React.useMemo(() => {
@@ -132,6 +132,8 @@ export default function EnhancedInventory() {
 
   const buildInventoryPayload = (data: InventoryFormData): Omit<InventoryItem, 'id' | 'created_at' | 'updated_at'> => ({
     ...data,
+    supplier: data.supplier || null,
+    unit_cost: data.unit_cost ?? null,
     status: computeInventoryStatus(data.current_stock, data.min_stock),
     last_updated: new Date().toISOString()
   })

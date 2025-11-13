@@ -1,70 +1,117 @@
 
 import {TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Package, Wrench, Calendar, BarChart3, Activity} from 'lucide-react'
 import { motion } from 'framer-motion'
-
-const stats = [
-  {
-    name: 'Total Inventory Items',
-    value: '2,847',
-    change: '+12%',
-    changeType: 'increase',
-    icon: Package,
-  },
-  {
-    name: 'Active Repairs',
-    value: '23',
-    change: '-8%',
-    changeType: 'decrease',
-    icon: Wrench,
-  },
-  {
-    name: 'Pending Jobs',
-    value: '156',
-    change: '+3%',
-    changeType: 'increase',
-    icon: Calendar,
-  },
-  {
-    name: 'Equipment Uptime',
-    value: '94.2%',
-    change: '+1.2%',
-    changeType: 'increase',
-    icon: Activity,
-  },
-]
-
-const recentActivities = [
-  {
-    id: 1,
-    type: 'inventory',
-    message: 'Low stock alert: Hydraulic fluid below minimum threshold',
-    time: '2 hours ago',
-    status: 'warning',
-  },
-  {
-    id: 2,
-    type: 'repair',
-    message: 'Repair completed for Tractor #TRC-001',
-    time: '4 hours ago',
-    status: 'success',
-  },
-  {
-    id: 3,
-    type: 'inspection',
-    message: 'Monthly safety inspection scheduled for tomorrow',
-    time: '6 hours ago',
-    status: 'info',
-  },
-  {
-    id: 4,
-    type: 'maintenance',
-    message: 'Preventive maintenance due for Harvester #HRV-003',
-    time: '1 day ago',
-    status: 'warning',
-  },
-]
+import { useState, useEffect } from 'react'
+import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
+import type { InventoryItem, RepairItem, JobCard, MaintenanceSchedule } from '../types/database'
 
 export default function Dashboard() {
+  const { items: inventoryItems, loading: inventoryLoading } = useSupabaseCRUD<InventoryItem>('inventory_items')
+  const { items: repairItems, loading: repairsLoading } = useSupabaseCRUD<RepairItem>('repair_items')
+  const { items: jobCards, loading: jobsLoading } = useSupabaseCRUD<JobCard>('job_cards')
+  const { items: maintenanceSchedules, loading: maintenanceLoading } = useSupabaseCRUD<MaintenanceSchedule>('maintenance_schedules')
+  
+  const [stats, setStats] = useState([
+    { name: 'Total Inventory Items', value: '0', change: '+0%', changeType: 'increase' as const, icon: Package },
+    { name: 'Active Repairs', value: '0', change: '+0%', changeType: 'increase' as const, icon: Wrench },
+    { name: 'Pending Jobs', value: '0', change: '+0%', changeType: 'increase' as const, icon: Calendar },
+    { name: 'Scheduled Maintenance', value: '0', change: '+0%', changeType: 'increase' as const, icon: Activity },
+  ])
+
+  const [recentActivities, setRecentActivities] = useState<Array<{
+    id: string
+    type: string
+    message: string
+    time: string
+    status: 'warning' | 'success' | 'info'
+  }>>([])
+
+  const loading = inventoryLoading || repairsLoading || jobsLoading || maintenanceLoading
+
+  useEffect(() => {
+    if (!loading) {
+      // Calculate stats from real data
+      const totalInventory = inventoryItems.length
+      const activeRepairs = repairItems.filter(r => r.status === 'in_progress' || r.status === 'pending').length
+      const pendingJobs = jobCards.filter(j => j.status === 'todo' || j.status === 'in_progress').length
+      const scheduledMaintenance = maintenanceSchedules.filter(m => m.status === 'scheduled' || m.status === 'in_progress').length
+
+      setStats([
+        { name: 'Total Inventory Items', value: totalInventory.toString(), change: '+0%', changeType: 'increase', icon: Package },
+        { name: 'Active Repairs', value: activeRepairs.toString(), change: '+0%', changeType: 'increase', icon: Wrench },
+        { name: 'Pending Jobs', value: pendingJobs.toString(), change: '+0%', changeType: 'increase', icon: Calendar },
+        { name: 'Scheduled Maintenance', value: scheduledMaintenance.toString(), change: '+0%', changeType: 'increase', icon: Activity },
+      ])
+
+      // Generate recent activities from real data
+      const activities: Array<{
+        id: string
+        type: string
+        message: string
+        time: string
+        status: 'warning' | 'success' | 'info'
+      }> = []
+
+      // Low stock alerts
+      const lowStockItems = inventoryItems.filter(item => item.status === 'low_stock' || item.status === 'out_of_stock')
+      lowStockItems.slice(0, 2).forEach(item => {
+        activities.push({
+          id: `inv-${item.id}`,
+          type: 'inventory',
+          message: `${item.status === 'out_of_stock' ? 'Out of stock' : 'Low stock'}: ${item.name}`,
+          time: getRelativeTime(item.updated_at),
+          status: item.status === 'out_of_stock' ? 'warning' : 'warning'
+        })
+      })
+
+      // Recent completed repairs
+      const completedRepairs = repairItems
+        .filter(r => r.status === 'completed')
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        .slice(0, 2)
+      completedRepairs.forEach(repair => {
+        activities.push({
+          id: `rep-${repair.id}`,
+          type: 'repair',
+          message: `Repair completed: ${repair.equipment_name}`,
+          time: getRelativeTime(repair.updated_at),
+          status: 'success'
+        })
+      })
+
+      // Upcoming maintenance
+      const upcomingMaintenance = maintenanceSchedules
+        .filter(m => m.status === 'scheduled')
+        .sort((a, b) => new Date(a.next_due_date).getTime() - new Date(b.next_due_date).getTime())
+        .slice(0, 2)
+      upcomingMaintenance.forEach(maintenance => {
+        const daysUntil = Math.ceil((new Date(maintenance.next_due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        activities.push({
+          id: `mnt-${maintenance.id}`,
+          type: 'maintenance',
+          message: `${maintenance.maintenance_type} scheduled for ${maintenance.equipment_name} in ${daysUntil} days`,
+          time: getRelativeTime(maintenance.updated_at),
+          status: 'info'
+        })
+      })
+
+      setRecentActivities(activities.slice(0, 6))
+    }
+  }, [inventoryItems, repairItems, jobCards, maintenanceSchedules, loading])
+
+  const getRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMs = now.getTime() - date.getTime()
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInHours / 24)
+
+    if (diffInHours < 1) return 'Just now'
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+    if (diffInDays === 1) return '1 day ago'
+    if (diffInDays < 7) return `${diffInDays} days ago`
+    return date.toLocaleDateString()
+  }
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
@@ -75,6 +122,16 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
@@ -130,6 +187,12 @@ export default function Dashboard() {
         >
           <div className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activities</h3>
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No recent activities</p>
+                <p className="text-sm mt-2">Activity will appear here as you use the system</p>
+              </div>
+            ) : (
             <div className="flow-root">
               <ul className="-mb-8">
                 {recentActivities.map((activity, activityIdx) => (
@@ -169,6 +232,7 @@ export default function Dashboard() {
                 ))}
               </ul>
             </div>
+            )}
           </div>
         </motion.div>
 
@@ -202,6 +266,8 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
+      </>
+      )}
     </div>
   )
 }

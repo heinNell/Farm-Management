@@ -1,3 +1,4 @@
+import { BrowserMultiFormatReader, NotFoundException, Result } from '@zxing/library'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, Camera, CheckCircle, Type, Upload, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -28,11 +29,27 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [manualInput, setManualInput] = useState('')
   const [scanResult, setScanResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [continuousScanning, setContinuousScanning] = useState(false)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
+  const scanningRef = useRef(false)
+
+  // Initialize ZXing reader
+  useEffect(() => {
+    if (!codeReaderRef.current) {
+      codeReaderRef.current = new BrowserMultiFormatReader()
+    }
+    
+    return () => {
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset()
+      }
+    }
+  }, [])
 
   // Initialize camera when scanner opens in camera mode
   useEffect(() => {
@@ -44,6 +61,52 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       stopCamera()
     }
   }, [isOpen, scanMode])
+
+  const handleScanResult = useCallback((result: Result) => {
+    const scanData: ScanResult = {
+      type: result.getBarcodeFormat().toString().includes('QR') ? 'qr' : 'barcode',
+      value: result.getText(),
+      format: result.getBarcodeFormat().toString()
+    }
+    
+    setScanResult(scanData.value)
+    setContinuousScanning(false) // Stop scanning after successful read
+    onScan(scanData)
+  }, [onScan])
+
+  const startContinuousScanning = useCallback(async () => {
+    if (!videoRef.current || !codeReaderRef.current || !scanningRef.current) return
+
+    try {
+      const result = await codeReaderRef.current.decodeFromVideoElement(videoRef.current)
+      if (result && scanningRef.current) {
+        handleScanResult(result)
+      }
+    } catch (err) {
+      if (!(err instanceof NotFoundException)) {
+        console.error('Scan error:', err)
+      }
+    }
+
+    // Continue scanning if still active
+    if (scanningRef.current) {
+      requestAnimationFrame(() => void startContinuousScanning())
+    }
+  }, [handleScanResult])
+
+  // Start continuous scanning
+  useEffect(() => {
+    if (continuousScanning && isScanning && videoRef.current && codeReaderRef.current) {
+      scanningRef.current = true
+      void startContinuousScanning()
+    } else {
+      scanningRef.current = false
+    }
+    
+    return () => {
+      scanningRef.current = false
+    }
+  }, [continuousScanning, isScanning, startContinuousScanning])
 
   const initializeCamera = async () => {
     try {
@@ -63,7 +126,9 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        void videoRef.current.play()
+        await videoRef.current.play()
+        // Auto-start continuous scanning when camera is ready
+        setContinuousScanning(true)
       }
     } catch (err) {
       console.error('Camera initialization failed:', err)
@@ -73,6 +138,13 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   }
 
   const stopCamera = () => {
+    scanningRef.current = false
+    setContinuousScanning(false)
+    
+    if (codeReaderRef.current) {
+      codeReaderRef.current.reset()
+    }
+    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
@@ -96,39 +168,29 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     return canvas.toDataURL('image/jpeg', 0.8)
   }, [])
 
-  // Simulate barcode/QR code detection (in real implementation, use a library like jsQR or QuaggaJS)
-  const processImage = useCallback((_imageData: string) => {
-    // This is a simulation - replace with actual barcode/QR detection library
-    const simulatedResults = [
-      'ASSET-TRC-001',
-      'ASSET-HRV-003', 
-      'ASSET-SPR-005',
-      'QR-FUEL-STATION-A',
-      'BC-MAINTENANCE-TOOL-42',
-      'ID-OPERATOR-JD-2024'
-    ]
-    
-    const randomResult = simulatedResults[Math.floor(Math.random() * simulatedResults.length)]
-    
-    // Guard against undefined result
-    if (!randomResult) return
+  // Process image using ZXing library
+  const processImage = useCallback(async (imageData: string) => {
+    if (!codeReaderRef.current) return
 
-    // Simulate processing delay
-    setTimeout(() => {
-      setScanResult(randomResult)
-      const result: ScanResult = {
-        type: randomResult.startsWith('QR-') ? 'qr' : 'barcode',
-        value: randomResult,
-        format: randomResult.startsWith('QR-') ? 'QR_CODE' : 'CODE_128'
+    try {
+      setError(null)
+      const result = await codeReaderRef.current.decodeFromImageUrl(imageData)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      handleScanResult(result)
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        setError('No barcode or QR code detected in the image. Please try again.')
+      } else {
+        console.error('Image processing error:', err)
+        setError('Failed to process image. Please try a clearer image.')
       }
-      onScan(result)
-    }, 1000)
-  }, [onScan])
+    }
+  }, [handleScanResult])
 
   const handleCameraCapture = () => {
     const imageData = captureFrame()
     if (imageData) {
-      processImage(imageData)
+      void processImage(imageData)
     }
   }
 
@@ -145,7 +207,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     reader.onload = (e) => {
       const imageData = e.target?.result as string
       if (imageData) {
-        processImage(imageData)
+        void processImage(imageData)
       }
     }
     reader.readAsDataURL(file)
@@ -172,6 +234,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     setScanResult(null)
     setError(null)
     setManualInput('')
+    setContinuousScanning(false)
     onClose()
   }
 
@@ -197,15 +260,30 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600 mb-4">
-          Position the barcode or QR code within the frame
+          {continuousScanning 
+            ? 'Scanning... Position the barcode or QR code within the frame' 
+            : 'Position the barcode or QR code within the frame'}
         </p>
-        <button
-          onClick={handleCameraCapture}
-          disabled={!isScanning}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isScanning ? 'Capture' : 'Starting Camera...'}
-        </button>
+        <div className="flex gap-2 justify-center">
+          <button
+            onClick={handleCameraCapture}
+            disabled={!isScanning || continuousScanning}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Capture Frame
+          </button>
+          <button
+            onClick={() => setContinuousScanning(!continuousScanning)}
+            disabled={!isScanning}
+            className={`px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              continuousScanning
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            {continuousScanning ? 'Stop Scanning' : 'Auto Scan'}
+          </button>
+        </div>
       </div>
     </div>
   )

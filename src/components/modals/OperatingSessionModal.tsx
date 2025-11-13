@@ -1,21 +1,20 @@
-
-import { Clock, Edit, Plus, X } from 'lucide-react'
-import React, { useState } from 'react'
-import { Asset, OperatingSession } from '../../types/fuel'
+import { Clock, Edit, Plus, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase'; // Import supabase for asset fetching
+import { Asset, OperatingSession } from '../../types/database';
+import FormSelect from '../ui/FormSelect';
 
 interface OperatingSessionModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (sessionData: Omit<OperatingSession, 'id'>) => Promise<void>
-  assets: Asset[]
-  session?: OperatingSession | null
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (sessionData: Omit<OperatingSession, 'id'>) => Promise<void>;
+  session?: OperatingSession | null;
 }
 
 const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({ 
   isOpen, 
   onClose, 
   onSave, 
-  assets,
   session 
 }) => {
   const [formData, setFormData] = useState({
@@ -29,57 +28,95 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
     distance_traveled: session?.distance_traveled || null,
     efficiency_rating: session?.efficiency_rating || null,
     operator_notes: session?.operator_notes || ''
-  })
-  
-  const [loading, setLoading] = useState(false)
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    
-    try {
-      await onSave({
-        ...formData,
-        session_start: new Date(formData.session_start).toISOString(),
-        session_end: formData.session_end ? new Date(formData.session_end).toISOString() : null,
-        created_at: session?.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      onClose()
-    } catch (error) {
-      console.error('Failed to save operating session:', error)
-    } finally {
-      setLoading(false)
+  const [assets, setAssets] = useState<Asset[]>([]); // State for assets
+  const [loadingAssets, setLoadingAssets] = useState(true); // Loading state for assets
+  const [loading, setLoading] = useState(false); // Overall loading state
+
+  // Fetch assets when the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const fetchAssets = async () => {
+        setLoadingAssets(true);
+        const { data, error } = await supabase
+          .from('assets')
+          .select('*')
+          .order('name');
+
+        if (!error && data) {
+          setAssets(data as Asset[]);
+        }
+        setLoadingAssets(false);
+      };
+
+      void fetchAssets();
+
+      // Reset form data when modal opens or session changes
+      setFormData({
+        asset_id: session?.asset_id || '',
+        session_start: session?.session_start ? session.session_start.slice(0, 16) : '',
+        session_end: session?.session_end ? session.session_end.slice(0, 16) : '',
+        operating_hours: session?.operating_hours || null,
+        fuel_consumed: session?.fuel_consumed || null,
+        initial_fuel_level: session?.initial_fuel_level || null,
+        final_fuel_level: session?.final_fuel_level || null,
+        distance_traveled: session?.distance_traveled || null,
+        efficiency_rating: session?.efficiency_rating || null,
+        operator_notes: session?.operator_notes || ''
+      });
     }
-  }
+  }, [isOpen, session]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    void (async () => {
+      try {
+        await onSave({
+          ...formData,
+          session_start: new Date(formData.session_start).toISOString(),
+          session_end: formData.session_end ? new Date(formData.session_end).toISOString() : null,
+          created_at: session?.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+        onClose();
+      } catch (error) {
+        console.error('Failed to save operating session:', error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    let newValue: string | number | null = value
-    
+    const { name, value } = e.target;
+    let newValue: string | number | null = value;
+
     if (['operating_hours', 'fuel_consumed', 'initial_fuel_level', 'final_fuel_level', 'distance_traveled', 'efficiency_rating'].includes(name)) {
-      newValue = value ? Number(value) : null
+      newValue = value ? Number(value) : null;
     }
-    
+
     setFormData(prev => {
-      const updated = { ...prev, [name]: newValue }
-      
+      const updated = { ...prev, [name]: newValue };
+
       // Auto-calculate operating hours when start/end time changes
       if ((name === 'session_start' || name === 'session_end') && updated.session_start && updated.session_end) {
-        const start = new Date(updated.session_start)
-        const end = new Date(updated.session_end)
+        const start = new Date(updated.session_start);
+        const end = new Date(updated.session_end);
         if (end > start) {
-          updated.operating_hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60) // Convert to hours
+          updated.operating_hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60); // Convert to hours
         }
       }
-      
-      return updated
-    })
-  }
 
-  const selectedAsset = assets.find(asset => asset.id === formData.asset_id)
+      return updated;
+    });
+  };
 
-  if (!isOpen) return null
+  const selectedAsset = assets.find(asset => asset.id === formData.asset_id);
+
+  if (!isOpen) return null; // Don't render anything if modal is not open
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -102,29 +139,40 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
             </button>
           </div>
 
-          <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e) }} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Asset *
-              </label>
-              <select
+              <FormSelect
+                label="Asset"
                 name="asset_id"
                 value={formData.asset_id}
-                onChange={handleChange}
+                onChange={(value) => setFormData(prev => ({ ...prev, asset_id: value }))}
+                options={[
+                  { value: '', label: 'Select Asset' },
+                  ...assets.map((asset) => ({
+                    value: asset.id,
+                    label: asset.name
+                  }))
+                ]}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="">Select Asset</option>
-                {assets.map(asset => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.name} ({asset.id})
-                  </option>
-                ))}
-              </select>
+                disabled={loadingAssets} // Disable select if assets are loading
+              />
+              {loadingAssets && (
+                <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+                  <p className="text-sm text-gray-500">Loading assets...</p>
+                </div>
+              )}
+              {assets.length === 0 && !loadingAssets && (
+                <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
+                  <p className="text-sm text-red-800">⚠️ No assets loaded!</p>
+                </div>
+              )}
               {selectedAsset && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {selectedAsset.type} • {selectedAsset.fuel_type}
-                </p>
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="text-sm text-gray-700">
+                    <span className="font-medium">Type:</span> {selectedAsset.type} • 
+                    <span className="font-medium ml-2">Fuel:</span> {selectedAsset.fuel_type}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -301,7 +349,7 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default OperatingSessionModal
+export default OperatingSessionModal;

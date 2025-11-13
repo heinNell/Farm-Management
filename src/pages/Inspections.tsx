@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { Calendar, CheckCircle, Download, FileText, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import InspectionModal from '../components/modals/InspectionModal'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import type { Inspection } from '../types/database'
 
@@ -16,27 +17,63 @@ const inspectionTemplates = [
 export default function Inspections() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'scheduled' | 'in_progress' | 'completed' | 'overdue'>('all')
-
-  // TODO: Implement modal and type filter functionality
-  // const [typeFilter, setTypeFilter] = useState<'all' | 'safety' | 'pre_season' | 'compliance' | 'maintenance'>('all')
-  // const [showCreateModal, setShowCreateModal] = useState(false)
-  // const [editingInspection, setEditingInspection] = useState<Inspection | null>(null)
+  const [typeFilter, setTypeFilter] = useState<'all' | 'safety' | 'pre_season' | 'compliance' | 'maintenance'>('all')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingInspection, setEditingInspection] = useState<Inspection | null>(null)
   
   // Use Supabase CRUD hook
-  const { items: inspections, loading, update, delete: deleteInspection, refresh } = useSupabaseCRUD<Inspection>('inspections')
+  const { items: inspections, loading, create, update, delete: deleteInspection, refresh } = useSupabaseCRUD<Inspection>('inspections')
 
   useEffect(() => {
     void refresh()
   }, [refresh])
 
+  useEffect(() => {
+    console.log('Inspections updated:', inspections.length, 'items')
+    console.log('Inspections list:', inspections)
+  }, [inspections])
+
   const filteredInspections = inspections.filter(inspection => {
     const matchesSearch = inspection.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          inspection.inspector.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || inspection.status === statusFilter
-    return matchesSearch && matchesStatus
+    const matchesType = typeFilter === 'all' || inspection.type === typeFilter
+    return matchesSearch && matchesStatus && matchesType
   })
 
   // Handler functions for CRUD operations
+  const handleCreateOrUpdateInspection = async (data: Partial<Inspection>) => {
+    console.log('Creating/Updating inspection with data:', data)
+    
+    if (editingInspection) {
+      await update(editingInspection.id, data)
+    } else {
+      // Ensure all required fields are present for create
+      const newInspection = {
+        title: data.title!,
+        type: data.type!,
+        inspector: data.inspector!,
+        status: data.status || 'scheduled',
+        progress: data.progress || 0,
+        score: data.score || 0,
+        scheduled_date: data.scheduled_date!,
+        completed_date: data.completed_date || null,
+        checklist_items: data.checklist_items || [],
+        findings: data.findings || null,
+        recommendations: data.recommendations || null,
+        asset_id: data.asset_id || null
+      } as Omit<Inspection, 'id' | 'created_at' | 'updated_at'>
+      
+      console.log('Creating new inspection:', newInspection)
+      const result = await create(newInspection)
+      console.log('Create result:', result)
+    }
+    
+    console.log('Refreshing inspections list...')
+    await refresh()
+    console.log('Current inspections count:', inspections.length)
+  }
+
   const handleDeleteInspection = async (id: string) => {
     if (confirm('Are you sure you want to delete this inspection?')) {
       await deleteInspection(id)
@@ -45,6 +82,16 @@ export default function Inspections() {
 
   const handleUpdateStatus = async (id: string, newStatus: Inspection['status']) => {
     await update(id, { status: newStatus })
+  }
+
+  const handleEditInspection = (inspection: Inspection) => {
+    setEditingInspection(inspection)
+    setShowCreateModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false)
+    setEditingInspection(null)
   }
 
   const getStatusColor = (status: string) => {
@@ -93,10 +140,7 @@ export default function Inspections() {
         </div>
         
         <button 
-          onClick={() => { 
-            // TODO: Implement create modal
-            alert('Create inspection modal - Coming soon!')
-          }}
+          onClick={() => setShowCreateModal(true)}
           className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -105,7 +149,7 @@ export default function Inspections() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 flex-wrap">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
@@ -116,6 +160,18 @@ export default function Inspections() {
           <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="overdue">Overdue</option>
+        </select>
+
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+        >
+          <option value="all">All Types</option>
+          <option value="safety">Safety</option>
+          <option value="pre_season">Pre-Season</option>
+          <option value="compliance">Compliance</option>
+          <option value="maintenance">Maintenance</option>
         </select>
       </div>
 
@@ -223,10 +279,16 @@ export default function Inspections() {
                     Start Inspection
                   </button>
                   <button 
+                    onClick={() => handleEditInspection(inspection)}
+                    className="flex items-center px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <Calendar className="h-4 w-4 mr-1" />
+                    Edit
+                  </button>
+                  <button 
                     onClick={() => { void handleDeleteInspection(inspection.id) }}
                     className="flex items-center px-3 py-2 text-sm text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
                   >
-                    <Calendar className="h-4 w-4 mr-1" />
                     Delete
                   </button>
                 </>
@@ -249,6 +311,14 @@ export default function Inspections() {
           ))}
         </div>
       </div>
+
+      {/* Inspection Modal */}
+      <InspectionModal
+        isOpen={showCreateModal}
+        onClose={handleCloseModal}
+        onSave={handleCreateOrUpdateInspection}
+        inspection={editingInspection}
+      />
     </div>
   )
 }

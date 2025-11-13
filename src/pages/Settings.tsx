@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
-import { Bell, Database, Save, Settings as SettingsIcon, Shield, Users } from 'lucide-react'
+import { Bell, Database, MapPin, Save, Settings as SettingsIcon, Shield, Users } from 'lucide-react'
 import { useState } from 'react'
+import { FarmsManagement } from '../components/FarmsManagement'
 
 // Define proper types for settings
 interface GeneralSettings {
@@ -47,6 +48,12 @@ const settingsSections = [
     title: 'General Settings',
     icon: SettingsIcon,
     description: 'Basic application settings and preferences'
+  },
+  {
+    id: 'farms',
+    title: 'Farms',
+    icon: MapPin,
+    description: 'Manage farm locations and assignments'
   },
   {
     id: 'notifications',
@@ -398,6 +405,8 @@ export default function Settings() {
     switch (activeSection) {
       case 'general':
         return renderGeneralSettings()
+      case 'farms':
+        return <FarmsManagement />
       case 'notifications':
         return renderNotificationSettings()
       case 'security':

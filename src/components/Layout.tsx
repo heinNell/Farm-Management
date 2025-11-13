@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Calendar, ClipboardCheck, Crown, Fuel, LayoutDashboard, Menu, Package, Settings, Shield, UserCheck, Wrench, X } from 'lucide-react'
+import { Boxes, Calendar, ClipboardCheck, Crown, Fuel, LayoutDashboard, Menu, Package, Settings, Shield, UserCheck, Wrench, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
@@ -8,6 +8,7 @@ import { useAuthContext } from './auth/AuthContext'
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiredRole: null },
   { name: 'Inventory', href: '/inventory', icon: Package, requiredRole: null },
+  { name: 'Stock Items', href: '/stock-items', icon: Boxes, requiredRole: null },
   { name: 'Repairs', href: '/repairs', icon: Wrench, requiredRole: null },
   { name: 'Jobs', href: '/jobs', icon: ClipboardCheck, requiredRole: null },
   { name: 'Inspections', href: '/inspections', icon: Calendar, requiredRole: null },

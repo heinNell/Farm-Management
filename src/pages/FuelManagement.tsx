@@ -5,7 +5,7 @@ import AssetModal from '../components/modals/AssetModal'
 import FuelRecordModal from '../components/modals/FuelRecordModal'
 import OperatingSessionModal from '../components/modals/OperatingSessionModal'
 import { useFuelData } from '../hooks/useFuelData'
-import type { Asset, FuelRecord, OperatingSession } from '../types/fuel'
+import type { Asset, FuelRecord, OperatingSession } from '../types/database'
 
 const FuelManagement: React.FC = () => {
   const {
@@ -23,6 +23,11 @@ const FuelManagement: React.FC = () => {
     updateOperatingSession,
     deleteOperatingSession
   } = useFuelData()
+
+  console.log('FuelManagement - assets loaded:', assets.length)
+  console.log('FuelManagement - fuel records:', fuelRecords.length)
+  console.log('FuelManagement - sessions:', operatingSessions.length)
+  console.log('FuelManagement - loading:', loading)
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'assets' | 'fuel-records' | 'sessions'>('dashboard')
   const [showAssetModal, setShowAssetModal] = useState(false)
@@ -474,9 +479,16 @@ const FuelManagement: React.FC = () => {
             await updateFuelRecord(editingRecord.id, data)
           } else {
             await createFuelRecord(data)
+            
+            // Update asset's current_hours if current_hours is provided in the fuel record
+            if ('current_hours' in data && typeof data.current_hours === 'number' && data.current_hours > 0) {
+              const asset = assets.find(a => a.id === data.asset_id)
+              if (asset && (!asset.current_hours || data.current_hours > asset.current_hours)) {
+                await updateAsset(data.asset_id, { current_hours: data.current_hours })
+              }
+            }
           }
         }}
-        assets={assets}
         record={editingRecord}
       />
 
@@ -493,7 +505,6 @@ const FuelManagement: React.FC = () => {
             await createOperatingSession(data)
           }
         }}
-        assets={assets}
         session={editingSession}
       />
     </div>

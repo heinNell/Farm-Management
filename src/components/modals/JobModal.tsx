@@ -1,7 +1,8 @@
 
 import { Clipboard, X } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
-import { JobCard, JobFormData } from '../../types/database'
+import { supabase } from '../../lib/supabase'
+import { Asset, JobCard, JobFormData } from '../../types/database'
 import { jobSchema, validateForm } from '../../utils/validation'
 import FormField from '../ui/FormField'
 import FormSelect from '../ui/FormSelect'
@@ -38,10 +39,14 @@ export default function JobModal({
     location: '',
     estimated_hours: 1,
     due_date: '',
-    tags: []
+    tags: [],
+    asset_id: '',
+    hour_meter_reading: undefined
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [newTag, setNewTag] = useState('')
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [loadingAssets, setLoadingAssets] = useState(true)
 
   useEffect(() => {
     if (item) {
@@ -53,7 +58,9 @@ export default function JobModal({
         location: item.location,
         estimated_hours: item.estimated_hours,
         due_date: item.due_date?.split('T')[0] || '', // Convert to date format
-        tags: item.tags || []
+        tags: item.tags || [],
+        asset_id: item.asset_id || '',
+        hour_meter_reading: item.hour_meter_reading || undefined
       })
     } else {
       setFormData({
@@ -64,12 +71,31 @@ export default function JobModal({
         location: '',
         estimated_hours: 1,
         due_date: '',
-        tags: []
+        tags: [],
+        asset_id: '',
+        hour_meter_reading: undefined
       })
     }
     setErrors({})
     setNewTag('')
   }, [item, isOpen])
+
+  useEffect(() => {
+    if (isOpen) {
+      void (async () => {
+        setLoadingAssets(true)
+        const { data, error } = await supabase
+          .from('assets')
+          .select('*')
+          .order('name')
+        
+        if (!error && data) {
+          setAssets(data as Asset[])
+        }
+        setLoadingAssets(false)
+      })()
+    }
+  }, [isOpen])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,7 +117,7 @@ export default function JobModal({
       })
   }
 
-  const updateField = (field: keyof JobFormData, value: string | number | string[]) => {
+  const updateField = (field: keyof JobFormData, value: string | number | string[] | undefined) => {
     setFormData((prev: JobFormData) => ({ ...prev, [field]: value }))
     if (errors[field]) {
       setErrors((prev: Record<string, string>) => ({ ...prev, [field]: '' }))
@@ -181,6 +207,67 @@ export default function JobModal({
             required
             error={errors.estimated_hours}
           />
+
+          <div className="md:col-span-2">
+            <FormSelect
+              label="Asset (Optional)"
+              name="asset_id"
+              value={formData.asset_id || ''}
+              onChange={(value) => updateField('asset_id', value)}
+              options={[
+                { value: '', label: 'No asset selected' },
+                ...assets.map((asset) => ({
+                  value: asset.id,
+                  label: asset.name
+                }))
+              ]}
+              disabled={loadingAssets}
+              error={errors.asset_id}
+            />
+            {formData.asset_id && assets.length > 0 && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                {(() => {
+                  const selectedAsset = assets.find(a => a.id === formData.asset_id)
+                  if (!selectedAsset) return null
+                  return (
+                    <div className="text-sm text-gray-700">
+                      <span className="font-medium">Type:</span> {selectedAsset.type} • 
+                      <span className="font-medium ml-2">Current Hours:</span> {selectedAsset.current_hours || 0}h
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+          </div>
+
+          {formData.asset_id && (
+            <div className="md:col-span-2">
+              <FormField
+                label="Hour Meter Reading (Optional)"
+                name="hour_meter_reading"
+                type="number"
+                step="0.1"
+                value={formData.hour_meter_reading ?? ''}
+                onChange={(value) => updateField('hour_meter_reading', value ? parseFloat(String(value)) : undefined)}
+                placeholder="Current hour meter reading"
+                error={errors.hour_meter_reading}
+              />
+              {formData.hour_meter_reading && (() => {
+                const selectedAsset = assets.find(a => a.id === formData.asset_id)
+                if (!selectedAsset) return null
+                const currentHours = selectedAsset.current_hours || 0
+                const hoursSince = formData.hour_meter_reading - currentHours
+                if (hoursSince > 0) {
+                  return (
+                    <div className="mt-2 text-sm text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                      Hours since last record: {hoursSince.toFixed(1)}h
+                    </div>
+                  )
+                }
+                return null
+              })()}
+            </div>
+          )}
 
           <div className="md:col-span-2">
             <FormField

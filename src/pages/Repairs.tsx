@@ -1,17 +1,17 @@
 import { motion } from 'framer-motion';
 import { AlertCircle, Camera, CheckCircle, Clock, Plus, Search, Wrench } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import RepairModal from '../components/modals/RepairModal';
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
-import type { RepairItem } from '../types/database';
+import type { RepairFormData, RepairItem } from '../types/database';
 
 export default function Repairs() {
-  const { items: repairs, refresh } = useSupabaseCRUD<RepairItem>('repairs');
+  const { items: repairs, loading, create, update, delete: deleteRepair, refresh } = useSupabaseCRUD<RepairItem>('repair_items');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed' | 'cancelled'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
-
-  // TODO: Add loading state, update and delete handlers when needed
-  // const { items: repairs, loading, update, delete: deleteRepair, refresh } = useSupabaseCRUD<RepairItem>('repairs');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingRepair, setEditingRepair] = useState<RepairItem | null>(null);
 
   useEffect(() => {
     void refresh();
@@ -25,6 +25,51 @@ export default function Repairs() {
     const matchesPriority = priorityFilter === 'all' || repair.priority === priorityFilter;
     return matchesSearch && matchesStatus && matchesPriority;
   });
+
+  // Handler functions for CRUD operations
+  const handleCreateOrUpdateRepair = async (data: RepairFormData) => {
+    if (editingRepair) {
+      await update(editingRepair.id, data);
+    } else {
+      const newRepair = {
+        equipment_name: data.equipment_name,
+        defect_tag: data.defect_tag,
+        priority: data.priority,
+        status: 'pending' as const,
+        description: data.description,
+        estimated_cost: data.estimated_cost,
+        actual_cost: data.actual_cost ?? null,
+        assigned_technician: data.assigned_technician,
+        photo_urls: [],
+        warranty_status: data.warranty_status,
+        estimated_completion: data.estimated_completion || new Date().toISOString(),
+        completed_date: null
+      } as Omit<RepairItem, 'id' | 'created_at' | 'updated_at'>;
+      
+      await create(newRepair);
+    }
+    await refresh();
+  };
+
+  const handleDeleteRepair = async (id: string) => {
+    if (confirm('Are you sure you want to delete this repair?')) {
+      await deleteRepair(id);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: RepairItem['status']) => {
+    await update(id, { status: newStatus });
+  };
+
+  const handleEditRepair = (repair: RepairItem) => {
+    setEditingRepair(repair);
+    setShowCreateModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingRepair(null);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -72,7 +117,10 @@ export default function Repairs() {
           </div>
         </div>
 
-        <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
           <Plus className="h-5 w-5 mr-2" />
           New Repair
         </button>
@@ -106,7 +154,24 @@ export default function Repairs() {
 
       {/* Repairs List */}
       <div className="space-y-4">
-        {filteredRepairs.map((repair, index) => (
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading repairs...</p>
+            </div>
+          </div>
+        ) : filteredRepairs.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-md">
+            <p className="text-gray-500 text-lg">No repairs found</p>
+            <p className="text-gray-400 text-sm mt-2">
+              {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
+                ? 'Try adjusting your filters'
+                : 'Create your first repair to get started'}
+            </p>
+          </div>
+        ) : (
+          filteredRepairs.map((repair, index) => (
           <motion.div
             key={repair.id}
             initial={{ opacity: 0, y: 20 }}
@@ -187,17 +252,42 @@ export default function Repairs() {
                 )}
               </div>
               <div className="flex gap-2">
-                <button className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                  View Details
+                <button 
+                  onClick={() => handleEditRepair(repair)}
+                  className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Edit
                 </button>
-                <button className="px-3 py-1 text-sm text-green-600 hover:text-green-700 font-medium">
+                <button 
+                  onClick={() => {
+                    const nextStatus = repair.status === 'pending' ? 'in_progress' : 
+                                     repair.status === 'in_progress' ? 'completed' : 'pending';
+                    void handleUpdateStatus(repair.id, nextStatus);
+                  }}
+                  className="px-3 py-1 text-sm text-green-600 hover:text-green-700 font-medium"
+                >
                   Update Status
+                </button>
+                <button 
+                  onClick={() => { void handleDeleteRepair(repair.id); }}
+                  className="px-3 py-1 text-sm text-red-600 hover:text-red-700 font-medium"
+                >
+                  Delete
                 </button>
               </div>
             </div>
           </motion.div>
-        ))}
+          ))
+        )}
       </div>
+
+      {/* Repair Modal */}
+      <RepairModal
+        isOpen={showCreateModal}
+        onClose={handleCloseModal}
+        onSubmit={handleCreateOrUpdateRepair}
+        item={editingRepair}
+      />
     </div>
   );
 }
