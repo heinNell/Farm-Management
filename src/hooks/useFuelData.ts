@@ -16,7 +16,7 @@ import type {
 import { FuelKPICalculator } from '../utils/fuelCalculations'
 
 type AssetInput = Omit<Asset, 'id' | 'created_at' | 'updated_at'>
-type FuelRecordInput = Omit<FuelRecord, 'id' | 'created_at' | 'updated_at' | 'cost'>
+type FuelRecordInput = Omit<FuelRecord, 'id' | 'created_at' | 'updated_at'>
 type OperatingSessionInput = Omit<OperatingSession, 'id' | 'created_at' | 'updated_at'>
 type FuelPriceInput = Omit<FuelPrice, 'id' | 'created_at' | 'updated_at'>
 
@@ -57,6 +57,7 @@ const mapFuelRecordRow = (row: SupabaseFuelRecordRow): FuelRecord => ({
   id: row.id,
   asset_id: row.asset_id,
   date: row.date,
+  filling_date: row.filling_date || row.date,
   quantity: parseNumeric(row.quantity),
   price_per_liter: parseNumeric(row.price_per_liter),
   cost: parseNumeric(row.cost),
@@ -68,6 +69,12 @@ const mapFuelRecordRow = (row: SupabaseFuelRecordRow): FuelRecord => ({
   notes: toNullable(row.notes),
   weather_conditions: toNullable(row.weather_conditions),
   operator_id: toNullable(row.operator_id),
+  driver_name: toNullable(row.driver_name),
+  attendant_name: toNullable(row.attendant_name),
+  current_hours: toNullable(row.current_hours),
+  previous_hours: toNullable(row.previous_hours),
+  consumption_rate: row.consumption_rate ? parseNumeric(row.consumption_rate) : null,
+  hour_difference: toNullable(row.hour_difference),
   created_at: row.created_at,
   updated_at: row.updated_at,
 })
@@ -118,7 +125,9 @@ const prepareAssetPayload = (asset: Partial<AssetInput>) => ({
 const prepareFuelRecordPayload = (record: Partial<FuelRecordInput>) => ({
   asset_id: record.asset_id,
   date: record.date,
+  filling_date: record.filling_date || record.date,
   quantity: record.quantity,
+  cost: record.cost ?? 0,
   price_per_liter: record.price_per_liter,
   fuel_type: record.fuel_type,
   location: record.location,
@@ -128,6 +137,12 @@ const prepareFuelRecordPayload = (record: Partial<FuelRecordInput>) => ({
   notes: toNullable(record.notes),
   weather_conditions: toNullable(record.weather_conditions),
   operator_id: toNullable(record.operator_id),
+  driver_name: toNullable(record.driver_name),
+  attendant_name: toNullable(record.attendant_name),
+  current_hours: record.current_hours ?? null,
+  previous_hours: record.previous_hours ?? null,
+  consumption_rate: record.consumption_rate ?? null,
+  hour_difference: record.hour_difference ?? null,
 })
 
 const prepareOperatingSessionPayload = (session: Partial<OperatingSessionInput>) => ({
@@ -439,6 +454,18 @@ export const useFuelData = () => {
     [operatingSessions],
   )
 
+  const getPreviousFuelFill = useCallback(
+    (assetId: string, currentFillingDate: string) => {
+      const assetRecords = fuelRecords
+        .filter(record => record.asset_id === assetId)
+        .filter(record => new Date(record.filling_date || record.date) < new Date(currentFillingDate))
+        .sort((a, b) => new Date(b.filling_date || b.date).getTime() - new Date(a.filling_date || a.date).getTime())
+      
+      return assetRecords[0] || null
+    },
+    [fuelRecords],
+  )
+
   const stats = useMemo(
     () => ({
       assetCount: assets.length,
@@ -472,5 +499,6 @@ export const useFuelData = () => {
     getActiveAssets,
     getFuelRecordsByAsset,
     getSessionsByAsset,
+    getPreviousFuelFill,
   }
 }

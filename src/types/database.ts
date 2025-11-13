@@ -251,8 +251,9 @@ export interface AssetFormData {
 
 export interface FuelRecord {
   id: string
-  asset_id: string
+  asset_id: string | null
   date: string
+  filling_date: string
   quantity: number
   price_per_liter: number
   cost: number
@@ -264,6 +265,12 @@ export interface FuelRecord {
   notes: string | null
   weather_conditions: string | null
   operator_id: string | null
+  driver_name: string | null
+  attendant_name: string | null
+  current_hours: number | null
+  previous_hours: number | null
+  consumption_rate: number | null
+  hour_difference: number | null
   created_at: string
   updated_at: string
 }
@@ -274,6 +281,7 @@ export type FuelRecordUpdate = Partial<Omit<FuelRecord, 'id' | 'created_at' | 'u
 export interface FuelRecordFormData {
   asset_id: string
   date: string
+  filling_date: string
   quantity: number
   price_per_liter: number
   cost: number
@@ -285,11 +293,13 @@ export interface FuelRecordFormData {
   notes?: string
   weather_conditions?: string
   operator_id?: string
+  driver_name?: string
+  attendant_name?: string
 }
 
 export interface OperatingSession {
   id: string
-  asset_id: string
+  asset_id: string | null
   session_start: string
   session_end: string | null
   initial_fuel_level: number | null
@@ -398,6 +408,7 @@ export interface SupabaseFuelRecordRow {
   id: string
   asset_id: string
   date: string
+  filling_date: string
   quantity: Numeric
   price_per_liter: Numeric
   cost: Numeric
@@ -409,6 +420,12 @@ export interface SupabaseFuelRecordRow {
   notes: string | null
   weather_conditions: string | null
   operator_id: string | null
+  driver_name: string | null
+  attendant_name: string | null
+  current_hours: number | null
+  previous_hours: number | null
+  consumption_rate: Numeric | null
+  hour_difference: number | null
   created_at: string
   updated_at: string
 }

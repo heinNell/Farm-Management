@@ -76,6 +76,7 @@ const OperatingSessionModal: React.FC<OperatingSessionModalProps> = ({
       try {
         await onSave({
           ...formData,
+          asset_id: formData.asset_id || null,
           session_start: new Date(formData.session_start).toISOString(),
           session_end: formData.session_end ? new Date(formData.session_end).toISOString() : null,
           created_at: session?.created_at || new Date().toISOString(),

@@ -38,7 +38,7 @@ export class FuelKPICalculator {
     equipmentTypes.forEach(type => {
       const assetsOfType = this.assets.filter(a => a.type === type)
       const assetIds = assetsOfType.map(a => a.id)
-      const sessions = this.operatingSessions.filter(s => assetIds.includes(s.asset_id))
+      const sessions = this.operatingSessions.filter(s => s.asset_id && assetIds.includes(s.asset_id))
       
       const totalFuel = sessions.reduce((sum, s) => sum + (s.fuel_consumed ?? 0), 0)
       const totalHours = sessions.reduce((sum, s) => sum + (s.operating_hours ?? 0), 0)

@@ -280,12 +280,14 @@ const FuelManagement: React.FC = () => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fleet / Asset</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel Type</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consumption</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filling Date</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -296,8 +298,8 @@ const FuelManagement: React.FC = () => {
                       <tr key={record.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{asset?.name}</div>
-                            <div className="text-sm text-gray-500">{record.asset_id}</div>
+                            <div className="text-sm font-medium text-gray-900">{asset?.name || 'Unknown'}</div>
+                            <div className="text-xs text-gray-500">{asset?.type || 'N/A'}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -308,14 +310,39 @@ const FuelManagement: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {record.quantity.toFixed(1)}L
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${record.cost.toFixed(2)}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">${record.cost.toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">${record.price_per_liter.toFixed(2)}/L</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {record.current_hours !== null && record.current_hours !== undefined ? (
+                            <div>
+                              <div className="text-sm text-gray-900">{record.current_hours}h</div>
+                              {record.hour_difference ? (
+                                <div className="text-xs text-green-600">+{record.hour_difference}h</div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {record.consumption_rate ? (
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{record.consumption_rate.toFixed(2)} L/h</div>
+                              {record.hour_difference ? (
+                                <div className="text-xs text-gray-500">{record.hour_difference}h used</div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {record.location || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(record.date).toLocaleDateString()}
+                          {new Date(record.filling_date || record.date).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                           <button
@@ -481,7 +508,7 @@ const FuelManagement: React.FC = () => {
             await createFuelRecord(data)
             
             // Update asset's current_hours if current_hours is provided in the fuel record
-            if ('current_hours' in data && typeof data.current_hours === 'number' && data.current_hours > 0) {
+            if ('current_hours' in data && typeof data.current_hours === 'number' && data.current_hours > 0 && data.asset_id) {
               const asset = assets.find(a => a.id === data.asset_id)
               if (asset && (!asset.current_hours || data.current_hours > asset.current_hours)) {
                 await updateAsset(data.asset_id, { current_hours: data.current_hours })

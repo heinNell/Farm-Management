@@ -25,6 +25,7 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     asset_id: record?.asset_id || '',
+    filling_date: record?.filling_date ? new Date(record.filling_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     quantity: record?.quantity || 0,
     cost: record?.cost || 0,
     price_per_liter: record?.price_per_liter || 0,
@@ -36,6 +37,8 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
     fuel_grade: record?.fuel_grade || '',
     weather_conditions: record?.weather_conditions || '',
     operator_id: record?.operator_id || '',
+    driver_name: record?.driver_name || '',
+    attendant_name: record?.attendant_name || '',
     current_hours: 0
   });
   
@@ -79,6 +82,7 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
       // Reset form data
       setFormData({
         asset_id: record?.asset_id || '',
+        filling_date: record?.filling_date ? new Date(record.filling_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         quantity: record?.quantity || 0,
         cost: record?.cost || 0,
         price_per_liter: record?.price_per_liter || 0,
@@ -90,6 +94,8 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
         fuel_grade: record?.fuel_grade || '',
         weather_conditions: record?.weather_conditions || '',
         operator_id: record?.operator_id || '',
+        driver_name: record?.driver_name || '',
+        attendant_name: record?.attendant_name || '',
         current_hours: 0
       });
 
@@ -111,13 +117,35 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
 
     void (async () => {
       try {
-        await onSave({
+        // Calculate hour difference and consumption rate
+        const previousHours = selectedAsset?.current_hours || null;
+        const hourDifference = previousHours && formData.current_hours > 0 
+          ? formData.current_hours - previousHours 
+          : null;
+        const calculatedConsumptionRate = hourDifference && hourDifference > 0 
+          ? formData.quantity / hourDifference 
+          : null;
+
+        // Convert empty string asset_id to null for UUID field
+        const filling_date = formData.filling_date || new Date().toISOString().split('T')[0];
+        
+        const dataToSave = {
           ...formData,
+          asset_id: formData.asset_id || null,
+          operator_id: formData.operator_id || null,
+          driver_name: formData.driver_name || null,
+          attendant_name: formData.attendant_name || null,
+          filling_date,
+          previous_hours: previousHours,
+          hour_difference: hourDifference,
+          consumption_rate: calculatedConsumptionRate,
           id: record?.id || '',
           date: record?.date || new Date().toISOString(),
           created_at: record?.created_at || new Date().toISOString(),
           updated_at: new Date().toISOString()
-        });
+        };
+        
+        await onSave(dataToSave);
         onClose();
       } catch (error) {
         console.error('Failed to save fuel record:', error);
@@ -225,6 +253,21 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
               )}
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filling Date *
+              </label>
+              <input
+                type="date"
+                name="filling_date"
+                value={formData.filling_date}
+                onChange={handleChange}
+                required
+                max={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -313,6 +356,36 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
                   </p>
                 </div>
               )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Driver Name
+                </label>
+                <input
+                  type="text"
+                  name="driver_name"
+                  value={formData.driver_name}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter driver's name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Filling Attendant Name
+                </label>
+                <input
+                  type="text"
+                  name="attendant_name"
+                  value={formData.attendant_name}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter attendant's name"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
