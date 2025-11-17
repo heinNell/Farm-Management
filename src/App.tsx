@@ -4,6 +4,7 @@ import AuthProvider from './components/auth/AuthProvider'
 import Layout from './components/Layout'
 import { useOfflineDetection } from './hooks/useOfflineDetection'
 import Dashboard from './pages/Dashboard'
+import FuelBunkers from './pages/FuelBunkers'
 import FuelManagement from './pages/FuelManagement'
 import Inspections from './pages/Inspections'
 import Inventory from './pages/Inventory'
@@ -11,7 +12,6 @@ import Jobs from './pages/Jobs'
 import Maintenance from './pages/Maintenance'
 import Repairs from './pages/Repairs'
 import Settings from './pages/Settings'
-import StockItems from './pages/StockItems'
 
 function AppContent() {
   const isOffline = useOfflineDetection()
@@ -29,13 +29,17 @@ function AppContent() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="inventory" element={<Inventory />} />
-          <Route path="stock-items" element={<StockItems />} />
           <Route path="repairs" element={<Repairs />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="inspections" element={<Inspections />} />
           <Route path="maintenance" element={<Maintenance />} />
           <Route path="fuel-management" element={<FuelManagement />} />
+          <Route path="fuel-bunkers" element={<FuelBunkers />} />
           <Route path="settings" element={<Settings />} />
+          {/* Redirect old stock-items route to inventory */}
+          <Route path="stock-items" element={<Navigate to="/inventory" replace />} />
+          {/* Catch all unknown routes */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
       

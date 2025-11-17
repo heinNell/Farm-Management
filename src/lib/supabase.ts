@@ -40,11 +40,13 @@ export const TABLES = {
   JOB_CARDS: 'job_cards',
   INSPECTIONS: 'inspections',
   MAINTENANCE_SCHEDULES: 'maintenance_schedules',
-  STOCK_ITEMS: 'stock_items',
+  MAINTENANCE_ALERTS: 'maintenance_alerts',
   ASSETS: 'assets',
   FUEL_RECORDS: 'fuel_records',
   FUEL_PRICES: 'fuel_prices',
-  OPERATING_SESSIONS: 'operating_sessions'
+  OPERATING_SESSIONS: 'operating_sessions',
+  FUEL_BUNKERS: 'fuel_bunkers',
+  FUEL_BUNKER_TRANSACTIONS: 'fuel_bunker_transactions'
 } as const
 
 // Type definitions for database tables

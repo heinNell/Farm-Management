@@ -302,39 +302,37 @@ ${data.map(row =>
       
       updateProgress('preparing', 10, 'Preparing maintenance records export...')
       
-      // Fetch maintenance data (using mock data structure)
+      // Fetch maintenance data from Supabase
       updateProgress('fetching', 30, 'Fetching maintenance records...')
       
-      // This would be replaced with actual Supabase query
-      await Promise.resolve() // Placeholder for actual async operation
-      const mockMaintenanceData: ExportRecord[] = [
-        {
-          'Date': '2024-01-15',
-          'Asset Name': 'John Deere 8370R Tractor',
-          'Maintenance Type': 'Oil Change',
-          'Status': 'Completed',
-          'Priority': 'High',
-          'Assigned To': 'Mike Johnson',
-          'Duration (hours)': '2',
-          'Cost': '250.00',
-          'Next Due': '2024-04-15'
-        },
-        {
-          'Date': '2024-01-20',
-          'Asset Name': 'Case IH 8250 Combine',
-          'Maintenance Type': 'Belt Inspection',
-          'Status': 'In Progress',
-          'Priority': 'Medium',
-          'Assigned To': 'Sarah Wilson',
-          'Duration (hours)': '1',
-          'Cost': '150.00',
-          'Next Due': '2024-02-20'
-        }
-      ]
+      const { data: maintenanceData, error: fetchError } = await supabase
+        .from('maintenance_schedules')
+        .select('*')
+        .order('next_due_date', { ascending: false })
+      
+      if (fetchError) throw fetchError
       
       updateProgress('processing', 60, 'Processing maintenance data...')
       
-      const headers = Object.keys(mockMaintenanceData[0] ?? {})
+      const exportData: ExportRecord[] = (maintenanceData ?? []).map(schedule => ({
+        'Date': schedule.last_completed 
+          ? new Date(schedule.last_completed).toLocaleDateString() 
+          : 'Not yet completed',
+        'Equipment': schedule.equipment_name,
+        'Maintenance Type': schedule.maintenance_type,
+        'Status': schedule.status,
+        'Priority': schedule.priority,
+        'Assigned To': schedule.assigned_technician,
+        'Current Hours': schedule.current_hours?.toString() ?? 'N/A',
+        'Interval Type': schedule.interval_type,
+        'Interval Value': schedule.interval_value.toString(),
+        'Next Due Date': new Date(schedule.next_due_date).toLocaleDateString(),
+        'Estimated Cost': schedule.estimated_cost?.toFixed(2) ?? 'N/A',
+        'Failure Probability': `${(schedule.failure_probability * 100).toFixed(1)}%`,
+        'Notes': schedule.notes ?? ''
+      }))
+      
+      const headers = Object.keys(exportData[0] ?? {})
       
       updateProgress('generating', 80, 'Generating export file...')
       
@@ -345,15 +343,15 @@ ${data.map(row =>
       switch (options.format) {
         case 'csv':
           filename = `maintenance-records-${timestamp}.csv`
-          blob = new Blob([generateCSV(mockMaintenanceData, headers)], { type: 'text/csv' })
+          blob = new Blob([generateCSV(exportData, headers)], { type: 'text/csv' })
           break
         case 'excel':
           filename = `maintenance-records-${timestamp}.xlsx`
-          blob = generateExcel(mockMaintenanceData, headers, 'Maintenance Records')
+          blob = generateExcel(exportData, headers, 'Maintenance Records')
           break
         case 'pdf':
           filename = `maintenance-records-${timestamp}.pdf`
-          blob = generatePDF(mockMaintenanceData, headers, 'Maintenance Records Report')
+          blob = generatePDF(exportData, headers, 'Maintenance Records Report')
           break
         default:
           throw new Error('Unsupported export format')
@@ -477,7 +475,7 @@ ${data.map(row =>
         'Location': asset.location ?? 'N/A',
         'Status': asset.status,
         'Purchase Date': asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'N/A',
-        'Purchase Cost': 'N/A', // Not in Asset type
+        'Purchase Cost': asset.purchase_cost?.toFixed(2) ?? 'N/A',
         'Operating Hours': asset.current_hours ?? 0,
         'Last Maintenance': 'N/A', // Not in Asset type
         'Created': new Date(asset.created_at).toLocaleDateString()
@@ -532,36 +530,67 @@ ${data.map(row =>
       
       updateProgress('preparing', 10, 'Preparing comprehensive report...')
       
-      // This would combine multiple data sources
+      // Fetch data from multiple sources
       updateProgress('fetching', 30, 'Fetching all data sources...')
       
-      // Simulate comprehensive data
-      await Promise.resolve() // Placeholder for actual async operation
+      const [assetsResult, fuelResult, maintenanceResult, inventoryResult] = await Promise.all([
+        supabase.from('assets').select('*'),
+        supabase.from('fuel_records').select('quantity, cost'),
+        supabase.from('maintenance_schedules').select('*'),
+        supabase.from('inventory_items').select('*')
+      ])
+      
+      if (assetsResult.error) throw assetsResult.error
+      if (fuelResult.error) throw fuelResult.error
+      if (maintenanceResult.error) throw maintenanceResult.error
+      if (inventoryResult.error) throw inventoryResult.error
+      
+      updateProgress('processing', 60, 'Processing comprehensive data...')
+      
+      const assets = assetsResult.data ?? []
+      const fuelRecords = fuelResult.data ?? []
+      const maintenance = maintenanceResult.data ?? []
+      const inventory = inventoryResult.data ?? []
+      
+      const totalFuel = fuelRecords.reduce((sum, r) => sum + (r.quantity ?? 0), 0)
+      const totalFuelCost = fuelRecords.reduce((sum, r) => sum + (r.cost ?? 0), 0)
+      const avgFuelPrice = totalFuel > 0 ? totalFuelCost / totalFuel : 0
+      
       const comprehensiveData: ExportRecord[] = [
         {
           'Report Section': 'Assets Summary',
-          'Total Assets': '12',
-          'Active Assets': '10',
-          'Maintenance Due': '3',
-          'High Risk Assets': '2'
+          'Total Assets': assets.length.toString(),
+          'Active Assets': assets.filter(a => a.status === 'active').length.toString(),
+          'In Maintenance': assets.filter(a => a.status === 'maintenance').length.toString(),
+          'Retired': assets.filter(a => a.status === 'retired').length.toString(),
+          'Total Purchase Cost': assets.reduce((sum, a) => sum + (a.purchase_cost ?? 0), 0).toFixed(2)
         },
         {
           'Report Section': 'Fuel Consumption',
-          'Total Fuel Used (L)': '2,450',
-          'Total Cost': '¥16,825',
-          'Average Price/L': '¥6.87',
-          'Efficiency Trend': 'Improving'
+          'Total Records': fuelRecords.length.toString(),
+          'Total Fuel Used (L)': totalFuel.toFixed(2),
+          'Total Cost': totalFuelCost.toFixed(2),
+          'Average Price/L': avgFuelPrice.toFixed(2),
+          'Avg Fuel per Record': (totalFuel / Math.max(fuelRecords.length, 1)).toFixed(2)
         },
         {
           'Report Section': 'Maintenance',
-          'Completed Tasks': '28',
-          'Pending Tasks': '5',
-          'Overdue Tasks': '2',
-          'Average Completion Time': '3.2 hours'
+          'Total Schedules': maintenance.length.toString(),
+          'Scheduled': maintenance.filter(m => m.status === 'scheduled').length.toString(),
+          'In Progress': maintenance.filter(m => m.status === 'in_progress').length.toString(),
+          'Completed': maintenance.filter(m => m.status === 'completed').length.toString(),
+          'Overdue': maintenance.filter(m => m.status === 'overdue').length.toString(),
+          'High Priority': maintenance.filter(m => m.priority === 'high').length.toString()
+        },
+        {
+          'Report Section': 'Inventory',
+          'Total Items': inventory.length.toString(),
+          'In Stock': inventory.filter(i => i.status === 'in_stock').length.toString(),
+          'Low Stock': inventory.filter(i => i.status === 'low_stock').length.toString(),
+          'Out of Stock': inventory.filter(i => i.status === 'out_of_stock').length.toString(),
+          'Total Value': inventory.reduce((sum, i) => sum + ((i.unit_cost ?? 0) * i.current_stock), 0).toFixed(2)
         }
       ]
-      
-      updateProgress('processing', 60, 'Processing comprehensive data...')
       
       const headers = Object.keys(comprehensiveData[0] ?? {})
       

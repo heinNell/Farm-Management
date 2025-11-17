@@ -39,47 +39,11 @@ export interface InventoryFormData {
 }
 
 // ============================================================================
-// STOCK MANAGEMENT
-// ============================================================================
-export interface StockItem {
-  id: string
-  item_name: string
-  category: 'raw_materials' | 'finished_goods' | 'spare_parts' | 'consumables' | 'tools' | null
-  quantity: number
-  unit: 'pieces' | 'kg' | 'liters' | 'boxes' | 'pallets' | 'meters' | null
-  location: string
-  status: 'available' | 'reserved' | 'low_stock' | 'out_of_stock' | null
-  reorder_point: number
-  reorder_quantity: number
-  unit_price: number
-  supplier: string
-  last_restocked: string | null
-  expiry_date: string | null
-  created_at: string
-  updated_at: string
-}
-
-export type StockItemInsert = Omit<StockItem, 'id' | 'created_at' | 'updated_at'>
-export type StockItemUpdate = Partial<Omit<StockItem, 'id' | 'created_at' | 'updated_at'>>
-
-export interface StockFormData {
-  item_name: string
-  category: 'raw_materials' | 'finished_goods' | 'spare_parts' | 'consumables' | 'tools'
-  quantity: number
-  unit: 'pieces' | 'kg' | 'liters' | 'boxes' | 'pallets' | 'meters'
-  location: string
-  status: 'available' | 'reserved' | 'low_stock' | 'out_of_stock'
-  reorder_point: number
-  reorder_quantity: number
-  unit_price: number
-  supplier: string
-}
-
-// ============================================================================
 // REPAIR MANAGEMENT
 // ============================================================================
 export interface RepairItem {
   id: string
+  asset_id: string | null
   equipment_name: string
   defect_tag: string
   priority: 'low' | 'medium' | 'high'
@@ -100,6 +64,7 @@ export type RepairItemInsert = Omit<RepairItem, 'id' | 'created_at' | 'updated_a
 export type RepairItemUpdate = Partial<Omit<RepairItem, 'id' | 'created_at' | 'updated_at'>>
 
 export interface RepairFormData {
+  asset_id: string
   equipment_name: string
   defect_tag: string
   priority: 'low' | 'medium' | 'high'
@@ -208,6 +173,23 @@ export interface MaintenanceSchedule {
 export type MaintenanceScheduleInsert = Omit<MaintenanceSchedule, 'id' | 'created_at' | 'updated_at'>
 export type MaintenanceScheduleUpdate = Partial<Omit<MaintenanceSchedule, 'id' | 'created_at' | 'updated_at'>>
 
+export interface MaintenanceAlert {
+  id: string
+  schedule_id: string
+  alert_type: 'upcoming' | 'overdue' | 'critical'
+  message: string
+  hours_until_due: number | null
+  days_until_due: number | null
+  acknowledged: boolean
+  acknowledged_by: string | null
+  acknowledged_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type MaintenanceAlertInsert = Omit<MaintenanceAlert, 'id' | 'created_at' | 'updated_at'>
+export type MaintenanceAlertUpdate = Partial<Omit<MaintenanceAlert, 'id' | 'created_at' | 'updated_at'>>
+
 // ============================================================================
 // ASSET & FUEL MANAGEMENT
 // ============================================================================
@@ -218,6 +200,7 @@ export interface Asset {
   model: string | null
   serial_number: string | null
   purchase_date: string | null
+  purchase_cost: number | null
   status: 'active' | 'maintenance' | 'retired' | 'out_of_service'
   location: string | null
   current_hours: number | null
@@ -382,7 +365,7 @@ export interface ComprehensiveFuelKPI {
 // ============================================================================
 export type Numeric = number | string | null
 
-export type EntityType = 'inventory' | 'inventory_items' | 'repairs' | 'repair_items' | 'jobs' | 'job_cards' | 'inspections' | 'maintenance' | 'maintenance_schedules' | 'assets' | 'fuel_records' | 'stock' | 'stock_items'
+export type EntityType = 'inventory' | 'inventory_items' | 'repairs' | 'repair_items' | 'jobs' | 'job_cards' | 'inspections' | 'maintenance' | 'maintenance_schedules' | 'assets' | 'fuel_records' | 'fuel_bunkers' | 'fuel_bunker_transactions'
 
 // Supabase Row Interfaces (direct database mappings for numeric field handling)
 export interface SupabaseAssetRow {
@@ -455,6 +438,68 @@ export interface SupabaseFuelPriceRow {
   supplier: string | null
   created_at: string
   updated_at: string
+}
+
+// ============================================================================
+// FUEL BUNKER MANAGEMENT
+// ============================================================================
+export interface FuelBunker {
+  id: string
+  tank_id: string
+  tank_name: string
+  location: string | null
+  description: string | null
+  tank_type: 'stationary' | 'mobile'
+  capacity: number
+  current_level: number
+  min_level: number | null
+  fuel_type: string | null
+  last_filled_date: string | null
+  status: 'active' | 'inactive' | 'maintenance'
+  created_at: string
+  updated_at: string
+}
+
+export type FuelBunkerInsert = Omit<FuelBunker, 'id' | 'created_at' | 'updated_at'>
+export type FuelBunkerUpdate = Partial<Omit<FuelBunker, 'id' | 'created_at' | 'updated_at'>>
+
+export interface FuelBunkerFormData {
+  tank_id: string
+  tank_name: string
+  location?: string
+  description?: string
+  tank_type: 'stationary' | 'mobile'
+  capacity: number
+  current_level: number
+  min_level?: number
+  fuel_type?: string
+  status: 'active' | 'inactive' | 'maintenance'
+}
+
+export interface FuelBunkerTransaction {
+  id: string
+  bunker_id: string
+  transaction_type: 'addition' | 'withdrawal' | 'adjustment'
+  quantity: number
+  previous_level: number | null
+  new_level: number | null
+  reference_number: string | null
+  notes: string | null
+  performed_by: string | null
+  transaction_date: string
+  created_at: string
+}
+
+export type FuelBunkerTransactionInsert = Omit<FuelBunkerTransaction, 'id' | 'created_at'>
+export type FuelBunkerTransactionUpdate = Partial<Omit<FuelBunkerTransaction, 'id' | 'created_at'>>
+
+export interface FuelBunkerTransactionFormData {
+  bunker_id: string
+  transaction_type: 'addition' | 'withdrawal' | 'adjustment'
+  quantity: number
+  reference_number?: string
+  notes?: string
+  performed_by?: string
 }
 
 export interface FormFieldProps {

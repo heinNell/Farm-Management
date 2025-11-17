@@ -18,6 +18,9 @@ import { FuelKPICalculator } from '../utils/fuelCalculations'
 type AssetInput = Omit<Asset, 'id' | 'created_at' | 'updated_at'>
 type FuelRecordInput = Omit<FuelRecord, 'id' | 'created_at' | 'updated_at'>
 type OperatingSessionInput = Omit<OperatingSession, 'id' | 'created_at' | 'updated_at'>
+
+// Extend SupabaseAssetRow to include purchase_cost
+type ExtendedSupabaseAssetRow = SupabaseAssetRow & { purchase_cost?: Numeric }
 type FuelPriceInput = Omit<FuelPrice, 'id' | 'created_at' | 'updated_at'>
 
 const parseNumeric = (value: Numeric): number => {
@@ -34,7 +37,7 @@ const parseNullableNumeric = (value: Numeric): number | null => {
 
 const toNullable = <T,>(value: T | null | undefined): T | null => (value ?? null)
 
-const mapAssetRow = (row: SupabaseAssetRow): Asset => ({
+const mapAssetRow = (row: ExtendedSupabaseAssetRow): Asset => ({
   id: row.id,
   name: row.name,
   type: row.type,
@@ -49,6 +52,7 @@ const mapAssetRow = (row: SupabaseAssetRow): Asset => ({
   barcode: toNullable(row.barcode),
   qr_code: toNullable(row.qr_code),
   notes: toNullable(row.notes),
+  purchase_cost: parseNullableNumeric(row.purchase_cost ?? null),
   created_at: row.created_at,
   updated_at: row.updated_at,
 })

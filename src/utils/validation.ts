@@ -27,6 +27,7 @@ export const jobSchema: z.ZodSchema<JobFormData> = z.object({
 })
 
 export const repairSchema: z.ZodSchema<RepairFormData> = z.object({
+  asset_id: z.string().min(1, 'Equipment selection is required'),
   equipment_name: z.string().trim().min(1, 'Equipment name is required'),
   defect_tag: z.string().trim().min(1, 'Defect tag is required'),
   priority: z.enum(['low', 'medium', 'high']),

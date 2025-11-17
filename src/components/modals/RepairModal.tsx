@@ -1,7 +1,7 @@
 
 import { Wrench } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
-import { RepairFormData, RepairItem } from '../../types/database'
+import { Asset, RepairFormData, RepairItem } from '../../types/database'
 import { repairSchema, validateForm } from '../../utils/validation'
 import FormField from '../ui/FormField'
 import FormSelect from '../ui/FormSelect'
@@ -15,6 +15,7 @@ interface RepairModalProps {
   onSubmit: (data: RepairFormData) => Promise<void>
   item?: RepairItem | null
   loading?: boolean
+  assets: Asset[]
 }
 
 const PRIORITIES = [
@@ -34,9 +35,11 @@ export default function RepairModal({
   onClose,
   onSubmit,
   item,
-  loading = false
+  loading = false,
+  assets
 }: RepairModalProps) {
   const [formData, setFormData] = useState<RepairFormData>({
+    asset_id: '',
     equipment_name: '',
     defect_tag: '',
     priority: 'medium',
@@ -51,6 +54,7 @@ export default function RepairModal({
   useEffect(() => {
     if (item) {
       setFormData({
+        asset_id: item.asset_id || '',
         equipment_name: item.equipment_name,
         defect_tag: item.defect_tag,
         priority: item.priority,
@@ -62,6 +66,7 @@ export default function RepairModal({
       })
     } else {
       setFormData({
+        asset_id: '',
         equipment_name: '',
         defect_tag: '',
         priority: 'medium',
@@ -99,7 +104,19 @@ export default function RepairModal({
   }
 
   const updateField = (field: keyof RepairFormData, value: string | number): void => {
-    setFormData((prev: RepairFormData) => ({ ...prev, [field]: value }))
+    setFormData((prev: RepairFormData) => {
+      const updated = { ...prev, [field]: value }
+      
+      // If asset_id changes, auto-populate equipment_name
+      if (field === 'asset_id' && typeof value === 'string') {
+        const selectedAsset = assets.find(a => a.id === value)
+        if (selectedAsset) {
+          updated.equipment_name = selectedAsset.name
+        }
+      }
+      
+      return updated
+    })
     if (errors[field]) {
       setErrors((prev: Record<string, string>) => {
         const newErrors = { ...prev }
@@ -108,6 +125,12 @@ export default function RepairModal({
       })
     }
   }
+
+  // Convert assets to options format for FormSelect
+  const assetOptions = assets.map(asset => ({
+    value: asset.id,
+    label: asset.name
+  }))
 
   return (
     <Modal
@@ -123,14 +146,14 @@ export default function RepairModal({
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
+          <FormSelect
             label="Equipment Name"
-            name="equipment_name"
-            value={formData.equipment_name}
-            onChange={(value) => updateField('equipment_name', value)}
-            placeholder="e.g., John Deere 6120"
+            name="asset_id"
+            value={formData.asset_id}
+            onChange={(value) => updateField('asset_id', value)}
+            options={assetOptions}
             required
-            error={errors.equipment_name}
+            error={errors.asset_id}
           />
 
           <FormField

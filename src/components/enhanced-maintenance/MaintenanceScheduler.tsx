@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSupabaseCRUD } from '../../hooks/useSupabaseCRUD'
 import { useSupabaseRealtime } from '../../hooks/useSupabaseRealtime'
+import { MaintenanceAlertService } from '../../services/maintenanceAlerts'
 
 interface MaintenanceTemplate {
   id: string
@@ -245,26 +246,21 @@ export default function MaintenanceScheduler() {
     }
   }
 
-  const generateAutomaticAlerts = () => {
+  const generateAutomaticAlerts = async () => {
     try {
-      // This would typically be handled by a background service
-      // For demo purposes, we'll simulate the alert generation
-      const now = new Date()
-      const alertSchedules = schedules?.filter((schedule: MaintenanceSchedule) => {
-        const dueDate = new Date(schedule.next_due_date)
-        const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
-        
-        return hoursUntilDue <= 48 && hoursUntilDue > 0 && 
-               schedule.status === 'scheduled'
-      })
-
-      if (alertSchedules && alertSchedules.length > 0) {
-        toast.success(`Generated ${alertSchedules.length} maintenance alerts`)
+      // Use the MaintenanceAlertService to generate real alerts
+      const { created, errors } = await MaintenanceAlertService.generateAlerts()
+      
+      if (errors.length > 0) {
+        console.error('Alert generation errors:', errors)
+        toast.error(`Failed to generate some alerts: ${errors[0]}`)
+      } else if (created > 0) {
+        toast.success(`Generated ${created} maintenance alert${created !== 1 ? 's' : ''}`)
       } else {
         toast(`No alerts needed at this time`, { icon: 'ℹ️' })
       }
-    } catch (_error) {
-      console.error('Failed to generate alerts:', _error)
+    } catch (error) {
+      console.error('Failed to generate alerts:', error)
       toast.error('Failed to generate alerts')
     }
   }

@@ -1,17 +1,18 @@
 import { motion } from 'framer-motion'
 import
   {
-    Bell,
     Calendar,
     ClipboardCheck,
     Package,
     TrendingUp,
-    Users,
     Wrench
   } from 'lucide-react'
 import { useState } from 'react'
 import CollaborativeJobBoard from '../components/CollaborativeJobBoard'
+import RealtimeDashboardOverview from '../components/RealtimeDashboardOverview'
 import RealtimeInventoryDashboard from '../components/RealtimeInventoryDashboard'
+import RealtimeMaintenanceDashboard from '../components/RealtimeMaintenanceDashboard'
+import RealtimeRepairsDashboard from '../components/RealtimeRepairsDashboard'
 import RealtimeStatus from '../components/RealtimeStatus'
 
 const dashboardTabs = [
@@ -28,88 +29,15 @@ export default function RealtimeDashboard() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        return (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-lg text-white"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-blue-100">Live Inventory Items</p>
-                    <p className="text-3xl font-bold">1,247</p>
-                  </div>
-                  <Package className="h-10 w-10 text-blue-200" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-gradient-to-r from-green-500 to-green-600 p-6 rounded-lg text-white"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-100">Active Jobs</p>
-                    <p className="text-3xl font-bold">23</p>
-                  </div>
-                  <ClipboardCheck className="h-10 w-10 text-green-200" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-gradient-to-r from-purple-500 to-purple-600 p-6 rounded-lg text-white"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100">Team Members Online</p>
-                    <p className="text-3xl font-bold">8</p>
-                  </div>
-                  <Users className="h-10 w-10 text-purple-200" />
-                </div>
-              </motion.div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Real-time Activity Feed</h2>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4 p-3 bg-blue-50 rounded-lg">
-                  <Bell className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Low stock alert: Hydraulic Fluid</p>
-                    <p className="text-xs text-gray-500">2 minutes ago</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-4 p-3 bg-green-50 rounded-lg">
-                  <ClipboardCheck className="h-5 w-5 text-green-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Job completed: Irrigation System Maintenance</p>
-                    <p className="text-xs text-gray-500">5 minutes ago</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-4 p-3 bg-yellow-50 rounded-lg">
-                  <Wrench className="h-5 w-5 text-yellow-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">New repair request: Tractor Engine Issue</p>
-                    <p className="text-xs text-gray-500">8 minutes ago</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
+        return <RealtimeDashboardOverview />
       case 'inventory':
         return <RealtimeInventoryDashboard />
       case 'jobs':
         return <CollaborativeJobBoard />
+      case 'repairs':
+        return <RealtimeRepairsDashboard />
+      case 'maintenance':
+        return <RealtimeMaintenanceDashboard />
       default:
         return (
           <div className="text-center py-12">

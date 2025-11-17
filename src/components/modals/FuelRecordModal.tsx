@@ -127,9 +127,9 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
           : null;
 
         // Convert empty string asset_id to null for UUID field
-        const filling_date = formData.filling_date || new Date().toISOString().split('T')[0];
+        const filling_date = (formData.filling_date ?? new Date().toISOString().split('T')[0]) as string;
         
-        const dataToSave = {
+        const dataToSave: Omit<FuelRecord, 'id' | 'created_at' | 'updated_at'> & { id: string; created_at: string; updated_at: string } = {
           ...formData,
           asset_id: formData.asset_id || null,
           operator_id: formData.operator_id || null,

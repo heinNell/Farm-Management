@@ -3,10 +3,11 @@ import { AlertCircle, Camera, CheckCircle, Clock, Plus, Search, Wrench } from 'l
 import { useEffect, useState } from 'react';
 import RepairModal from '../components/modals/RepairModal';
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
-import type { RepairFormData, RepairItem } from '../types/database';
+import type { Asset, RepairFormData, RepairItem } from '../types/database';
 
 export default function Repairs() {
   const { items: repairs, loading, create, update, delete: deleteRepair, refresh } = useSupabaseCRUD<RepairItem>('repair_items');
+  const { items: assets, loading: assetsLoading } = useSupabaseCRUD<Asset>('assets');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed' | 'cancelled'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all');
@@ -32,6 +33,7 @@ export default function Repairs() {
       await update(editingRepair.id, data);
     } else {
       const newRepair = {
+        asset_id: data.asset_id || null,
         equipment_name: data.equipment_name,
         defect_tag: data.defect_tag,
         priority: data.priority,
@@ -287,6 +289,8 @@ export default function Repairs() {
         onClose={handleCloseModal}
         onSubmit={handleCreateOrUpdateRepair}
         item={editingRepair}
+        assets={assets}
+        loading={loading || assetsLoading}
       />
     </div>
   );

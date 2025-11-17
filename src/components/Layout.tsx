@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Boxes, Calendar, ClipboardCheck, Crown, Fuel, LayoutDashboard, Menu, Package, Settings, Shield, UserCheck, Wrench, X } from 'lucide-react'
+import { Calendar, ClipboardCheck, Crown, Fuel, LayoutDashboard, LogOut, Menu, Package, Settings, Shield, Truck, UserCheck, Wrench, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
@@ -8,23 +8,29 @@ import { useAuthContext } from './auth/AuthContext'
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, requiredRole: null },
   { name: 'Inventory', href: '/inventory', icon: Package, requiredRole: null },
-  { name: 'Stock Items', href: '/stock-items', icon: Boxes, requiredRole: null },
   { name: 'Repairs', href: '/repairs', icon: Wrench, requiredRole: null },
   { name: 'Jobs', href: '/jobs', icon: ClipboardCheck, requiredRole: null },
   { name: 'Inspections', href: '/inspections', icon: Calendar, requiredRole: null },
   { name: 'Maintenance', href: '/maintenance', icon: Calendar, requiredRole: null },
   { name: 'Fuel Management', href: '/fuel-management', icon: Fuel, requiredRole: null },
+  { name: 'Fuel Bunkers', href: '/fuel-bunkers', icon: Truck, requiredRole: null },
   { name: 'Settings', href: '/settings', icon: Settings, requiredRole: 'ADMIN' as const },
 ]
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
-  const { user, userRole } = useAuthContext()
+  const { user, userRole, signOut } = useAuthContext()
   const permissions = usePermissions()
 
   // Call isAdmin() to get the boolean value
   const isUserAdmin = permissions.isAdmin()
+
+  const handleSignOut = () => {
+    signOut().catch(error => {
+      console.error('Sign out error:', error)
+    })
+  }
 
   // Filter navigation based on role
   const filteredNavigation = navigation.filter(item => {
@@ -102,7 +108,14 @@ export default function Layout() {
 
       {/* Footer */}
       <div className="px-4 py-4 border-t border-gray-200">
-        <div className="text-xs text-gray-500 text-center">
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
+        <div className="text-xs text-gray-500 text-center mt-3">
           <p>Secured by Supabase</p>
           <p className="mt-1">© 2024 Farm Management System</p>
         </div>

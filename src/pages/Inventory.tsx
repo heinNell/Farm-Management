@@ -1,11 +1,13 @@
 
 import { motion } from 'framer-motion'
-import { AlertTriangle, CheckCircle, Filter, Package, Plus, Scan, Search } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Download, Filter, Package, Plus, Scan, Search, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import ScanModal from '../components/ScanModal'
+import BulkInventoryUploadModal from '../components/modals/BulkInventoryUploadModal'
 import InventoryModal from '../components/modals/InventoryModal'
+import ScanModal from '../components/ScanModal'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import type { InventoryFormData, InventoryItem } from '../types/database'
+import { exportInventoryToExcel, ParsedInventoryItem } from '../utils/inventoryExcelUtils'
 
 export default function Inventory() {
   const { items: inventoryItems, loading, create, update, delete: deleteItem, refresh } = useSupabaseCRUD<InventoryItem>('inventory_items')
@@ -13,6 +15,7 @@ export default function Inventory() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showScanModal, setShowScanModal] = useState(false)
   const [showInventoryModal, setShowInventoryModal] = useState(false)
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false)
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
 
   useEffect(() => {
@@ -64,6 +67,21 @@ export default function Inventory() {
     setEditingItem(null)
   }
 
+  const handleBulkUpload = async (items: ParsedInventoryItem[]) => {
+    for (const item of items) {
+      await create({
+        ...item,
+        supplier: item.supplier || null,
+        unit_cost: item.unit_cost ?? null
+      })
+    }
+    await refresh()
+  }
+
+  const handleExportToExcel = () => {
+    exportInventoryToExcel(inventoryItems)
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'in_stock': return 'text-green-600 bg-green-100'
@@ -99,7 +117,21 @@ export default function Inventory() {
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={handleExportToExcel}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <Download className="h-5 w-5 mr-2" />
+            Export
+          </button>
+          <button
+            onClick={() => setShowBulkUploadModal(true)}
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <Upload className="h-5 w-5 mr-2" />
+            Bulk Upload
+          </button>
           <button
             onClick={() => setShowScanModal(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -241,6 +273,13 @@ export default function Inventory() {
         onSubmit={handleCreateOrUpdateItem}
         item={editingItem}
         loading={loading}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkInventoryUploadModal
+        isOpen={showBulkUploadModal}
+        onClose={() => setShowBulkUploadModal(false)}
+        onUpload={handleBulkUpload}
       />
     </div>
   )

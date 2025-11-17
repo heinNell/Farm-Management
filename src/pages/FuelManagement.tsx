@@ -1,11 +1,14 @@
-import { BarChart3, Clock, Edit, Fuel, Plus, Search, Trash2, Truck } from 'lucide-react'
+import { BarChart3, Clock, Download, Edit, Fuel, Plus, Search, Trash2, Truck, Upload } from 'lucide-react'
 import React, { useState } from 'react'
+import FuelAnalytics from '../components/fuel/FuelAnalytics'
 import FuelDashboard from '../components/fuel/FuelDashboard'
 import AssetModal from '../components/modals/AssetModal'
+import BulkFuelUploadModal from '../components/modals/BulkFuelUploadModal'
 import FuelRecordModal from '../components/modals/FuelRecordModal'
 import OperatingSessionModal from '../components/modals/OperatingSessionModal'
 import { useFuelData } from '../hooks/useFuelData'
 import type { Asset, FuelRecord, OperatingSession } from '../types/database'
+import { downloadFuelTemplate, exportFuelRecordsToExcel } from '../utils/fuelExcelUtils'
 
 const FuelManagement: React.FC = () => {
   const {
@@ -29,10 +32,11 @@ const FuelManagement: React.FC = () => {
   console.log('FuelManagement - sessions:', operatingSessions.length)
   console.log('FuelManagement - loading:', loading)
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'assets' | 'fuel-records' | 'sessions'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'assets' | 'fuel-records' | 'sessions' | 'analytics'>('dashboard')
   const [showAssetModal, setShowAssetModal] = useState(false)
   const [showFuelRecordModal, setShowFuelRecordModal] = useState(false)
   const [showSessionModal, setShowSessionModal] = useState(false)
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false)
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null)
   const [editingRecord, setEditingRecord] = useState<FuelRecord | null>(null)
   const [editingSession, setEditingSession] = useState<OperatingSession | null>(null)
@@ -43,7 +47,8 @@ const FuelManagement: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'assets', label: 'Assets', icon: Truck },
     { id: 'fuel-records', label: 'Fuel Records', icon: Fuel },
-    { id: 'sessions', label: 'Operating Sessions', icon: Clock }
+    { id: 'sessions', label: 'Operating Sessions', icon: Clock },
+    { id: 'analytics', label: 'Analytics & Reports', icon: BarChart3 }
   ]
 
   const handleEditAsset = (asset: Asset) => {
@@ -262,16 +267,42 @@ const FuelManagement: React.FC = () => {
               </div>
             </div>
             
-            <button
-              onClick={() => {
-                setEditingRecord(null)
-                setShowFuelRecordModal(true)
-              }}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add Record
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={downloadFuelTemplate}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                Template
+              </button>
+              
+              <button
+                onClick={() => exportFuelRecordsToExcel(fuelRecords, assets)}
+                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                Export
+              </button>
+              
+              <button
+                onClick={() => setShowBulkUploadModal(true)}
+                className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                <Upload className="h-5 w-5 mr-2" />
+                Bulk Upload
+              </button>
+              
+              <button
+                onClick={() => {
+                  setEditingRecord(null)
+                  setShowFuelRecordModal(true)
+                }}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Add Record
+              </button>
+            </div>
           </div>
 
           {/* Fuel Records Table */}
@@ -478,6 +509,15 @@ const FuelManagement: React.FC = () => {
         </div>
       )}
 
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && (
+        <FuelAnalytics
+          fuelRecords={fuelRecords}
+          assets={assets}
+          operatingSessions={operatingSessions}
+        />
+      )}
+
       {/* Modals */}
       <AssetModal
         isOpen={showAssetModal}
@@ -533,6 +573,27 @@ const FuelManagement: React.FC = () => {
           }
         }}
         session={editingSession}
+      />
+
+      <BulkFuelUploadModal
+        isOpen={showBulkUploadModal}
+        onClose={() => setShowBulkUploadModal(false)}
+        onUpload={async (records) => {
+          // Upload all records
+          for (const record of records) {
+            // Records are already validated in the parser
+            await createFuelRecord(record as Omit<FuelRecord, 'id' | 'created_at' | 'updated_at'>)
+            
+            // Update asset's current_hours if provided
+            if (record.current_hours && record.asset_id) {
+              const asset = assets.find(a => a.id === record.asset_id)
+              if (asset && (!asset.current_hours || record.current_hours > asset.current_hours)) {
+                await updateAsset(record.asset_id, { current_hours: record.current_hours })
+              }
+            }
+          }
+        }}
+        assets={assets}
       />
     </div>
   )
