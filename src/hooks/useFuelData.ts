@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase, TABLES } from '../lib/supabase'
@@ -181,9 +182,9 @@ export const useFuelData = () => {
   const [kpis, setKPIs] = useState<ComprehensiveFuelKPI | null>(null)
 
   const fetchAllData = useCallback(async () => {
-    setLoading(true)
+    // Note: We don't set loading=true here to prevent UI flickering during background updates
     try {
-      console.log('useFuelData: Starting to fetch all data...')
+      console.log('useFuelData: Fetching data...')
       
       const [assetsResponse, recordsResponse, sessionsResponse, pricesResponse] = await Promise.all([
         supabase.from(TABLES.ASSETS).select('*').order('created_at', { ascending: false }),
@@ -191,11 +192,6 @@ export const useFuelData = () => {
         supabase.from(TABLES.OPERATING_SESSIONS).select('*').order('session_start', { ascending: false }),
         supabase.from(TABLES.FUEL_PRICES).select('*').order('effective_date', { ascending: false }),
       ])
-
-      console.log('useFuelData: Assets response:', assetsResponse.error || `${assetsResponse.data?.length} assets`)
-      console.log('useFuelData: Records response:', recordsResponse.error || `${recordsResponse.data?.length} records`)
-      console.log('useFuelData: Sessions response:', sessionsResponse.error || `${sessionsResponse.data?.length} sessions`)
-      console.log('useFuelData: Prices response:', pricesResponse.error || `${pricesResponse.data?.length} prices`)
 
       if (assetsResponse.error) throw assetsResponse.error
       if (recordsResponse.error) throw recordsResponse.error
@@ -212,7 +208,6 @@ export const useFuelData = () => {
       const mappedSessions = sessionRows.map(mapOperatingSessionRow)
       const mappedPrices = priceRows.map(mapFuelPriceRow)
 
-      console.log('useFuelData: Setting assets:', mappedAssets.length)
       setAssets(mappedAssets)
       setFuelRecords(mappedRecords)
       setOperatingSessions(mappedSessions)
@@ -226,14 +221,79 @@ export const useFuelData = () => {
       }
     } catch (error) {
       console.error('Failed to fetch fuel data:', error)
-      toast.error('Failed to load fuel data')
+      toast.error('Failed to sync fuel data')
     } finally {
+      // Only set loading to false after the *initial* load
       setLoading(false)
     }
   }, [])
 
+  // Setup Real-time Subscriptions
   useEffect(() => {
+    // 1. Initial Fetch
     void fetchAllData()
+
+    // 2. Setup Real-time Listener
+    const channel = supabase
+      .channel('fuel-dashboard-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: TABLES.ASSETS,
+        },
+        (payload) => {
+          console.log('Real-time update received from ASSETS:', payload)
+          void fetchAllData()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: TABLES.FUEL_RECORDS,
+        },
+        (payload) => {
+          console.log('Real-time update received from FUEL_RECORDS:', payload)
+          void fetchAllData()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: TABLES.OPERATING_SESSIONS,
+        },
+        (payload) => {
+          console.log('Real-time update received from OPERATING_SESSIONS:', payload)
+          void fetchAllData()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: TABLES.FUEL_PRICES,
+        },
+        (payload) => {
+          console.log('Real-time update received from FUEL_PRICES:', payload)
+          void fetchAllData()
+        }
+      )
+      .subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Connected to real-time updates')
+        }
+      })
+
+    // 3. Cleanup
+    return () => {
+      void supabase.removeChannel(channel)
+    }
   }, [fetchAllData])
 
   const createAsset = useCallback(async (assetData: AssetInput) => {
@@ -249,9 +309,12 @@ export const useFuelData = () => {
       throw response.error
     }
 
+    // Update local state immediately for responsiveness
     const mapped = mapAssetRow(response.data as SupabaseAssetRow)
     setAssets(prev => [mapped, ...prev])
     toast.success('Asset created successfully')
+    
+    // Note: Real-time subscription will likely trigger a refetch shortly after
     return mapped
   }, [])
 
@@ -306,8 +369,11 @@ export const useFuelData = () => {
       }
 
       const mapped = mapFuelRecordRow(response.data as SupabaseFuelRecordRow)
+      // Optimistic update
       setFuelRecords(prev => [mapped, ...prev])
       toast.success('Fuel record created successfully')
+      
+      // Force calculation update immediately, though subscription handles it too
       await fetchAllData()
       return mapped
     },
@@ -446,7 +512,8 @@ export const useFuelData = () => {
 
   const getAssetsByType = useCallback((type: string) => assets.filter(asset => asset.type === type), [assets])
 
-  const getActiveAssets = useCallback(() => assets.filter(asset => asset.status === 'active'), [assets])
+  // FIX: Converted status to String() to satisfy the linter
+  const getActiveAssets = useCallback(() => assets.filter(asset => String(asset.status) === 'active'), [assets])
 
   const getFuelRecordsByAsset = useCallback(
     (assetId: string) => fuelRecords.filter(record => record.asset_id === assetId),

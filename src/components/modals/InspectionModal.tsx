@@ -94,6 +94,7 @@ export default function InspectionModal({
         title: formData.title,
         type: formData.type,
         inspector: formData.inspector,
+        creator: formData.inspector, // Use inspector as creator
         scheduled_date: new Date(formData.scheduled_date).toISOString(),
         status: inspection?.status || 'scheduled',
         progress: inspection?.progress || 0,

@@ -7,6 +7,7 @@ import BulkFuelUploadModal from '../components/modals/BulkFuelUploadModal'
 import FuelRecordModal from '../components/modals/FuelRecordModal'
 import OperatingSessionModal from '../components/modals/OperatingSessionModal'
 import { useFuelData } from '../hooks/useFuelData'
+import { supabase } from '../lib/supabase'
 import type { Asset, FuelRecord, OperatingSession } from '../types/database'
 import { downloadFuelTemplate, exportFuelRecordsToExcel } from '../utils/fuelExcelUtils'
 
@@ -42,6 +43,14 @@ const FuelManagement: React.FC = () => {
   const [editingSession, setEditingSession] = useState<OperatingSession | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
+  
+  // Fuel records filters
+  const [fuelFilterAsset, setFuelFilterAsset] = useState('')
+  const [fuelFilterLocation, setFuelFilterLocation] = useState('')
+  const [fuelFilterFuelType, setFuelFilterFuelType] = useState('')
+  const [fuelFilterDateFrom, setFuelFilterDateFrom] = useState('')
+  const [fuelFilterDateTo, setFuelFilterDateTo] = useState('')
+  const [fuelFilterDriver, setFuelFilterDriver] = useState('')
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -93,10 +102,51 @@ const FuelManagement: React.FC = () => {
 
   const filteredRecords = fuelRecords.filter(record => {
     const asset = assets.find(a => a.id === record.asset_id)
-    const matchesSearch = asset?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.location?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
+    
+    // Text search
+    const matchesSearch = !searchTerm || 
+      asset?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.driver_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    // Asset filter
+    const matchesAsset = !fuelFilterAsset || record.asset_id === fuelFilterAsset
+    
+    // Location filter
+    const matchesLocation = !fuelFilterLocation || record.location === fuelFilterLocation
+    
+    // Fuel type filter
+    const matchesFuelType = !fuelFilterFuelType || record.fuel_type === fuelFilterFuelType
+    
+    // Driver filter
+    const matchesDriver = !fuelFilterDriver || record.driver_name === fuelFilterDriver
+    
+    // Date range filter (using filling_date)
+    const recordDate = new Date(record.filling_date || record.date)
+    const matchesDateFrom = !fuelFilterDateFrom || recordDate >= new Date(fuelFilterDateFrom)
+    const matchesDateTo = !fuelFilterDateTo || recordDate <= new Date(fuelFilterDateTo + 'T23:59:59')
+    
+    return matchesSearch && matchesAsset && matchesLocation && matchesFuelType && matchesDriver && matchesDateFrom && matchesDateTo
   })
+
+  // Get unique values for filter dropdowns
+  const uniqueLocations = [...new Set(fuelRecords.map(r => r.location).filter((loc): loc is string => Boolean(loc)))]
+  const uniqueFuelTypes = [...new Set(fuelRecords.map(r => r.fuel_type).filter((type): type is string => Boolean(type)))]
+  const uniqueDrivers = [...new Set(fuelRecords.map(r => r.driver_name).filter((driver): driver is string => Boolean(driver)))]
+  
+  // Count active filters for fuel records
+  const activeFuelFilters = [fuelFilterAsset, fuelFilterLocation, fuelFilterFuelType, fuelFilterDriver, fuelFilterDateFrom, fuelFilterDateTo].filter(Boolean).length
+  
+  const clearFuelFilters = () => {
+    setFuelFilterAsset('')
+    setFuelFilterLocation('')
+    setFuelFilterFuelType('')
+    setFuelFilterDriver('')
+    setFuelFilterDateFrom('')
+    setFuelFilterDateTo('')
+    setSearchTerm('')
+  }
 
   const filteredSessions = operatingSessions.filter(session => {
     const asset = assets.find(a => a.id === session.asset_id)
@@ -253,55 +303,169 @@ const FuelManagement: React.FC = () => {
       {activeTab === 'fuel-records' && (
         <div className="space-y-6">
           {/* Fuel Records Header */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-between">
-            <div className="flex-1 max-w-lg">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search fuel records..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
+          <div className="flex flex-col gap-4">
+            {/* Search and Action Buttons Row */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-between">
+              <div className="flex-1 max-w-lg">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by asset, location, driver, receipt..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={downloadFuelTemplate}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Download className="h-5 w-5 mr-2" />
+                  Template
+                </button>
+                
+                <button
+                  onClick={() => exportFuelRecordsToExcel(filteredRecords, assets)}
+                  className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  <Download className="h-5 w-5 mr-2" />
+                  Export ({filteredRecords.length})
+                </button>
+                
+                <button
+                  onClick={() => setShowBulkUploadModal(true)}
+                  className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                >
+                  <Upload className="h-5 w-5 mr-2" />
+                  Bulk Upload
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setEditingRecord(null)
+                    setShowFuelRecordModal(true)
+                  }}
+                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Add Record
+                </button>
               </div>
             </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={downloadFuelTemplate}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Download className="h-5 w-5 mr-2" />
-                Template
-              </button>
-              
-              <button
-                onClick={() => exportFuelRecordsToExcel(fuelRecords, assets)}
-                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                <Download className="h-5 w-5 mr-2" />
-                Export
-              </button>
-              
-              <button
-                onClick={() => setShowBulkUploadModal(true)}
-                className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-              >
-                <Upload className="h-5 w-5 mr-2" />
-                Bulk Upload
-              </button>
-              
-              <button
-                onClick={() => {
-                  setEditingRecord(null)
-                  setShowFuelRecordModal(true)
-                }}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Add Record
-              </button>
+
+            {/* Filters Row */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-700">Filters</h3>
+                {activeFuelFilters > 0 && (
+                  <button
+                    onClick={clearFuelFilters}
+                    className="text-sm text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Clear all ({activeFuelFilters})
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {/* Asset Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Asset</label>
+                  <select
+                    value={fuelFilterAsset}
+                    onChange={(e) => setFuelFilterAsset(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">All Assets</option>
+                    {assets.map(asset => (
+                      <option key={asset.id} value={asset.id}>{asset.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Location Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+                  <select
+                    value={fuelFilterLocation}
+                    onChange={(e) => setFuelFilterLocation(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">All Locations</option>
+                    {uniqueLocations.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Fuel Type Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Fuel Type</label>
+                  <select
+                    value={fuelFilterFuelType}
+                    onChange={(e) => setFuelFilterFuelType(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">All Types</option>
+                    {uniqueFuelTypes.map(type => (
+                      <option key={type} value={type} className="capitalize">{type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Driver Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Driver</label>
+                  <select
+                    value={fuelFilterDriver}
+                    onChange={(e) => setFuelFilterDriver(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">All Drivers</option>
+                    {uniqueDrivers.map(driver => (
+                      <option key={driver} value={driver}>{driver}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date From Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={fuelFilterDateFrom}
+                    onChange={(e) => setFuelFilterDateFrom(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Date To Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={fuelFilterDateTo}
+                    onChange={(e) => setFuelFilterDateTo(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Results Summary */}
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>
+                Showing <strong>{filteredRecords.length}</strong> of <strong>{fuelRecords.length}</strong> records
+              </span>
+              {filteredRecords.length > 0 && (
+                <span>
+                  Total: <strong>{filteredRecords.reduce((sum, r) => sum + r.quantity, 0).toFixed(1)}L</strong> • 
+                  Cost: <strong>${filteredRecords.reduce((sum, r) => sum + r.cost, 0).toFixed(2)}</strong>
+                </span>
+              )}
             </div>
           </div>
 
@@ -541,10 +705,29 @@ const FuelManagement: React.FC = () => {
           setShowFuelRecordModal(false)
           setEditingRecord(null)
         }}
-        onSave={async (data) => {
+        onSave={async (data, sourceBunkerId) => {
           if (editingRecord) {
             await updateFuelRecord(editingRecord.id, data)
           } else {
+            // If a source bunker is specified, withdraw fuel from it first
+            if (sourceBunkerId && data.quantity > 0) {
+              try {
+                const { error: withdrawError } = await supabase.rpc('withdraw_fuel_for_record', {
+                  p_bunker_id: sourceBunkerId,
+                  p_quantity: data.quantity,
+                  p_notes: `Fuel record for asset: ${data.asset_id || 'Unknown'}`,
+                  p_performed_by: data.driver_name || data.attendant_name || null
+                })
+                
+                if (withdrawError) {
+                  throw new Error(`Failed to withdraw fuel from bunker: ${withdrawError.message}`)
+                }
+              } catch (error) {
+                console.error('Failed to withdraw fuel from bunker:', error)
+                throw error
+              }
+            }
+            
             await createFuelRecord(data)
             
             // Update asset's current_hours if current_hours is provided in the fuel record

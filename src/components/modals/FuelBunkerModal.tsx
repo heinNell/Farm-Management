@@ -1,11 +1,18 @@
 import { Fuel } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import { FuelBunker, FuelBunkerFormData } from '../../types/database';
 import FormField from '../ui/FormField';
 import FormSelect from '../ui/FormSelect';
 import FormTextarea from '../ui/FormTextarea';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import Modal from '../ui/Modal';
+
+interface Farm {
+  id: string
+  name: string
+  location: string | null
+}
 
 interface FuelBunkerModalProps {
   isOpen: boolean;
@@ -51,9 +58,33 @@ export default function FuelBunkerModal({
     current_level: 0,
     min_level: 0,
     fuel_type: 'diesel',
-    status: 'active'
+    status: 'active',
+    farm_id: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [loadingFarms, setLoadingFarms] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Fetch farms
+      const fetchFarms = async () => {
+        setLoadingFarms(true);
+        const { data, error } = await supabase
+          .from('farms')
+          .select('id, name, location')
+          .eq('status', 'active')
+          .order('name');
+
+        if (!error && data) {
+          setFarms(data as Farm[]);
+        }
+        setLoadingFarms(false);
+      };
+
+      void fetchFarms();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (bunker) {
@@ -67,7 +98,8 @@ export default function FuelBunkerModal({
         current_level: bunker.current_level,
         min_level: bunker.min_level || 0,
         fuel_type: bunker.fuel_type || 'diesel',
-        status: bunker.status
+        status: bunker.status,
+        farm_id: bunker.farm_id || ''
       });
     } else {
       setFormData({
@@ -80,7 +112,8 @@ export default function FuelBunkerModal({
         current_level: 0,
         min_level: 0,
         fuel_type: 'diesel',
-        status: 'active'
+        status: 'active',
+        farm_id: ''
       });
     }
     setErrors({});
@@ -183,6 +216,28 @@ export default function FuelBunkerModal({
             placeholder="e.g., Main Storage Tank"
             required
             error={errors.tank_name}
+          />
+
+          <FormSelect
+            label="Farm"
+            name="farm_id"
+            value={formData.farm_id || ''}
+            onChange={(value) => {
+              updateField('farm_id', value);
+              // Auto-set location to farm name when farm is selected
+              const selectedFarm = farms.find(f => f.id === value);
+              if (selectedFarm) {
+                updateField('location', selectedFarm.name);
+              }
+            }}
+            options={[
+              { value: '', label: loadingFarms ? 'Loading farms...' : 'Select Farm (Optional)' },
+              ...farms.map(farm => ({
+                value: farm.id,
+                label: farm.name
+              }))
+            ]}
+            error={errors.farm_id}
           />
 
           <FormSelect

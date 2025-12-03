@@ -95,6 +95,7 @@ export interface JobCard {
   notes: string | null
   asset_id: string | null
   hour_meter_reading: number | null
+  extended_data: JobExtendedData | null
   created_at: string
   updated_at: string
 }
@@ -117,6 +118,69 @@ export interface JobFormData {
 export type JobCardInsert = Omit<JobCard, 'id' | 'created_at' | 'updated_at'>
 export type JobCardUpdate = Partial<Omit<JobCard, 'id' | 'created_at' | 'updated_at'>>
 
+// Job Card Extended Data (stored as JSONB)
+export interface JobRepairItem {
+  id: string
+  description: string
+  type: 'repair' | 'replace'
+  status: 'pending' | 'in_progress' | 'completed'
+  completed_date: string | null
+  completed_by: string | null
+  notes: string | null
+  cost: number
+}
+
+export interface JobSpareAllocation {
+  id: string
+  inventory_item_id: string
+  item_name: string
+  item_sku: string
+  quantity: number
+  unit_cost: number
+  total_cost: number
+  allocated_date: string
+  allocated_by: string
+}
+
+export interface JobIRRequest {
+  id: string
+  item_description: string
+  quantity: number
+  urgency: 'low' | 'medium' | 'high' | 'critical'
+  status: 'pending' | 'approved' | 'ordered' | 'received' | 'cancelled'
+  estimated_cost: number | null
+  actual_cost: number | null
+  supplier: string | null
+  requested_date: string
+  requested_by: string
+  notes: string | null
+}
+
+export interface JobThirdPartyService {
+  id: string
+  service_provider: string
+  service_description: string
+  status: 'requested' | 'quoted' | 'approved' | 'in_progress' | 'completed' | 'cancelled'
+  quoted_cost: number | null
+  actual_cost: number | null
+  contact_person: string | null
+  contact_phone: string | null
+  requested_date: string
+  scheduled_date: string | null
+  completed_date: string | null
+  notes: string | null
+}
+
+export interface JobExtendedData {
+  repair_items: JobRepairItem[]
+  spare_allocations: JobSpareAllocation[]
+  ir_requests: JobIRRequest[]
+  third_party_services: JobThirdPartyService[]
+  total_parts_cost: number
+  total_service_cost: number
+  total_labor_cost: number
+}
+
 // ============================================================================
 // INSPECTION MANAGEMENT
 // ============================================================================
@@ -125,6 +189,7 @@ export interface Inspection {
   title: string
   type: 'safety' | 'pre_season' | 'compliance' | 'maintenance'
   inspector: string
+  creator: string
   status: 'scheduled' | 'in_progress' | 'completed' | 'overdue' | 'cancelled'
   progress: number
   score: number
@@ -134,6 +199,7 @@ export interface Inspection {
   findings: string | null
   recommendations: string | null
   asset_id: string | null
+  signature?: InspectionSignature | null
   created_at: string
   updated_at: string
 }
@@ -141,11 +207,59 @@ export interface Inspection {
 export type InspectionInsert = Omit<Inspection, 'id' | 'created_at' | 'updated_at'>
 export type InspectionUpdate = Partial<Omit<Inspection, 'id' | 'created_at' | 'updated_at'>>
 
+export interface InspectionTemplate {
+  id: string
+  name: string
+  description: string | null
+  type: 'safety' | 'pre_season' | 'compliance' | 'maintenance'
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual' | 'as_needed'
+  checklist_items: ChecklistItemTemplate[]
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ChecklistItemTemplate {
+  id: string
+  description: string
+  order: number
+  category?: string
+  weight?: number
+  input_type?: 'checkbox' | 'select'
+  options?: ChecklistItemOption[]
+  require_photo_on?: string[]
+  require_note_on?: string[]
+}
+
+export interface ChecklistItemOption {
+  label: string
+  value: string
+  score_percent: number
+  color: string
+}
+
+export type InspectionTemplateInsert = Omit<InspectionTemplate, 'id' | 'created_at' | 'updated_at'>
+export type InspectionTemplateUpdate = Partial<Omit<InspectionTemplate, 'id' | 'created_at' | 'updated_at'>>
+
 export interface ChecklistItem {
   id: string
   description: string
   completed: boolean
   notes?: string
+  category?: string
+  weight?: number
+  status?: 'pending' | 'good' | 'repair' | 'replace'
+  photo_urls?: string[]
+  input_type?: 'checkbox' | 'select'
+  options?: ChecklistItemOption[]
+  require_photo_on?: string[]
+  require_note_on?: string[]
+}
+
+export interface InspectionSignature {
+  inspector_name: string
+  signature_data: string // Base64 encoded signature image
+  signed_at: string
 }
 
 // ============================================================================
@@ -441,6 +555,26 @@ export interface SupabaseFuelPriceRow {
 }
 
 // ============================================================================
+// FARM MANAGEMENT
+// ============================================================================
+export interface Farm {
+  id: string
+  name: string
+  location: string | null
+  description: string | null
+  area_hectares: number | null
+  manager_name: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  status: 'active' | 'inactive'
+  created_at: string
+  updated_at: string
+}
+
+export type FarmInsert = Omit<Farm, 'id' | 'created_at' | 'updated_at'>
+export type FarmUpdate = Partial<Omit<Farm, 'id' | 'created_at' | 'updated_at'>>
+
+// ============================================================================
 // FUEL BUNKER MANAGEMENT
 // ============================================================================
 export interface FuelBunker {
@@ -456,6 +590,7 @@ export interface FuelBunker {
   fuel_type: string | null
   last_filled_date: string | null
   status: 'active' | 'inactive' | 'maintenance'
+  farm_id: string | null
   created_at: string
   updated_at: string
 }
@@ -474,18 +609,21 @@ export interface FuelBunkerFormData {
   min_level?: number
   fuel_type?: string
   status: 'active' | 'inactive' | 'maintenance'
+  farm_id?: string
 }
 
 export interface FuelBunkerTransaction {
   id: string
   bunker_id: string
-  transaction_type: 'addition' | 'withdrawal' | 'adjustment'
+  transaction_type: 'addition' | 'withdrawal' | 'adjustment' | 'transfer_in' | 'transfer_out'
   quantity: number
   previous_level: number | null
   new_level: number | null
   reference_number: string | null
   notes: string | null
   performed_by: string | null
+  related_bunker_id: string | null
+  related_transaction_id: string | null
   transaction_date: string
   created_at: string
 }
@@ -495,9 +633,17 @@ export type FuelBunkerTransactionUpdate = Partial<Omit<FuelBunkerTransaction, 'i
 
 export interface FuelBunkerTransactionFormData {
   bunker_id: string
-  transaction_type: 'addition' | 'withdrawal' | 'adjustment'
+  transaction_type: 'addition' | 'withdrawal' | 'adjustment' | 'transfer_in' | 'transfer_out'
   quantity: number
   reference_number?: string
+  notes?: string
+  performed_by?: string
+}
+
+export interface FuelBunkerTransferFormData {
+  source_bunker_id: string
+  destination_bunker_id: string
+  quantity: number
   notes?: string
   performed_by?: string
 }

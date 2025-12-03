@@ -1,7 +1,7 @@
 
 import { AlertCircle, DollarSign, TrendingDown, TrendingUp } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
-import { Area, AreaChart, Bar, CartesianGrid, ComposedChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 interface FuelPrice {
   id: string
@@ -82,7 +82,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
     return Object.values(grouped)
   }, [priceData, selectedFuelType, timeRange])
 
-    // Process cost analysis data (combining price and consumption)
+  // Process cost analysis data (combining price and consumption)
   const costAnalysisData = useMemo(() => {
     if (viewType !== 'cost_analysis' || !consumptionData || !priceData) return []
 
@@ -133,7 +133,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
       .sort((a, b) => a.month.localeCompare(b.month))
   }, [consumptionData, priceData, viewType, timeRange])
 
-  // Process supplier comparison data
+  // Process supplier comparison data (FIXED)
   const supplierComparisonData = useMemo(() => {
     if (viewType !== 'supplier_comparison') return []
 
@@ -270,7 +270,10 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
     return (
       <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
         <p className="font-semibold text-gray-900">
-          {label ? new Date(String(label)).toLocaleDateString() : ''}
+          {viewType === 'supplier_comparison' 
+            ? String(label)
+            : label ? new Date(String(label)).toLocaleDateString() : ''
+          }
         </p>
         {payload.map((entry, index) => (
           <div key={index}>
@@ -286,6 +289,9 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
         ))}
         {data && typeof data.supplier === 'string' && (
           <p className="text-sm text-gray-600">Supplier: {data.supplier}</p>
+        )}
+        {data && typeof data.recordCount === 'number' && (
+          <p className="text-sm text-gray-600">Records: {data.recordCount}</p>
         )}
         {data && data.isForecast === true && typeof data.confidence === 'number' && (
           <p className="text-sm text-orange-600">
@@ -359,27 +365,29 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
         )
 
       case 'supplier_comparison':
+        // FIXED: Changed from LineChart to BarChart with proper orientation
         return (
-          <LineChart data={supplierComparisonData} layout="horizontal">
+          <BarChart 
+            data={supplierComparisonData} 
+            layout="vertical"
+            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+          >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" label={{ value: 'Price (¥/L)', position: 'insideBottom', offset: -5 }} />
+            <XAxis 
+              type="number" 
+              label={{ value: 'Price (¥/L)', position: 'insideBottom', offset: -5 }} 
+            />
             <YAxis 
               dataKey="supplier" 
               type="category" 
-              width={100}
-              tickFormatter={(name: unknown) => {
-                const str = String(name)
-                return str.length > 12 ? `${str.slice(0, 10)}...` : str
-              }}
+              width={90}
             />
-            <Tooltip 
-              formatter={(value: number, name: string) => [`¥${value.toFixed(2)}`, name]}
-              labelFormatter={(supplier: unknown) => `Supplier: ${String(supplier)}`}
-            />
-            <Line dataKey="avgPrice" stroke="#8884d8" strokeWidth={3} name="Avg Price" />
-            <Line dataKey="minPrice" stroke="#82ca9d" strokeWidth={2} name="Min Price" />
-            <Line dataKey="maxPrice" stroke="#ff7300" strokeWidth={2} name="Max Price" />
-          </LineChart>
+            <Tooltip content={<CustomTooltip />} />
+            <Legend />
+            <Bar dataKey="minPrice" fill="#82ca9d" name="Min Price" />
+            <Bar dataKey="avgPrice" fill="#8884d8" name="Avg Price" />
+            <Bar dataKey="maxPrice" fill="#ff7300" name="Max Price" />
+          </BarChart>
         )
 
       case 'forecast':
@@ -457,7 +465,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
           </select>
 
           {/* Fuel Type Filter */}
-          {fuelTypes.length > 1 && (
+          {fuelTypes.length > 1 && viewType !== 'supplier_comparison' && (
             <select
               value={selectedFuelType}
               onChange={(e) => setSelectedFuelType(e.target.value)}
@@ -471,16 +479,18 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
           )}
 
           {/* Time Range */}
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(parseInt(e.target.value))}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value={30}>Last 30 days</option>
-            <option value={90}>Last 90 days</option>
-            <option value={180}>Last 6 months</option>
-            <option value={365}>Last year</option>
-          </select>
+          {viewType !== 'supplier_comparison' && (
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(parseInt(e.target.value))}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+              <option value={180}>Last 6 months</option>
+              <option value={365}>Last year</option>
+            </select>
+          )}
         </div>
       </div>
 

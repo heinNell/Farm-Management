@@ -1,15 +1,16 @@
 
-import {TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Package, Wrench, Calendar, BarChart3, Activity} from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { Activity, AlertTriangle, BarChart3, Calendar, CheckCircle, ClipboardCheck, Package, TrendingDown, TrendingUp, Wrench } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
-import type { InventoryItem, RepairItem, JobCard, MaintenanceSchedule } from '../types/database'
+import type { Inspection, InventoryItem, JobCard, MaintenanceSchedule, RepairItem } from '../types/database'
 
 export default function Dashboard() {
   const { items: inventoryItems, loading: inventoryLoading } = useSupabaseCRUD<InventoryItem>('inventory_items')
   const { items: repairItems, loading: repairsLoading } = useSupabaseCRUD<RepairItem>('repair_items')
   const { items: jobCards, loading: jobsLoading } = useSupabaseCRUD<JobCard>('job_cards')
   const { items: maintenanceSchedules, loading: maintenanceLoading } = useSupabaseCRUD<MaintenanceSchedule>('maintenance_schedules')
+  const { items: inspections, loading: inspectionsLoading } = useSupabaseCRUD<Inspection>('inspections')
   
   const [stats, setStats] = useState([
     { name: 'Total Inventory Items', value: '0', change: '+0%', changeType: 'increase' as const, icon: Package },
@@ -26,7 +27,9 @@ export default function Dashboard() {
     status: 'warning' | 'success' | 'info'
   }>>([])
 
-  const loading = inventoryLoading || repairsLoading || jobsLoading || maintenanceLoading
+  const [upcomingInspections, setUpcomingInspections] = useState<Inspection[]>([])
+
+  const loading = inventoryLoading || repairsLoading || jobsLoading || maintenanceLoading || inspectionsLoading
 
   useEffect(() => {
     if (!loading) {
@@ -42,6 +45,22 @@ export default function Dashboard() {
         { name: 'Pending Jobs', value: pendingJobs.toString(), change: '+0%', changeType: 'increase', icon: Calendar },
         { name: 'Scheduled Maintenance', value: scheduledMaintenance.toString(), change: '+0%', changeType: 'increase', icon: Activity },
       ])
+
+      // Get upcoming inspections (within 7 days)
+      const now = new Date()
+      const weekFromNow = new Date()
+      weekFromNow.setDate(weekFromNow.getDate() + 7)
+      
+      const upcoming = inspections
+        .filter(i => {
+          const scheduledDate = new Date(i.scheduled_date)
+          return (i.status === 'scheduled' || i.status === 'in_progress') && 
+                 (scheduledDate <= weekFromNow || scheduledDate < now) // Include overdue
+        })
+        .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+        .slice(0, 5)
+      
+      setUpcomingInspections(upcoming)
 
       // Generate recent activities from real data
       const activities: Array<{
@@ -61,6 +80,21 @@ export default function Dashboard() {
           message: `${item.status === 'out_of_stock' ? 'Out of stock' : 'Low stock'}: ${item.name}`,
           time: getRelativeTime(item.updated_at),
           status: item.status === 'out_of_stock' ? 'warning' : 'warning'
+        })
+      })
+
+      // Overdue inspections
+      const overdueInspections = inspections
+        .filter(i => (i.status === 'scheduled' || i.status === 'in_progress') && new Date(i.scheduled_date) < now)
+        .slice(0, 2)
+      overdueInspections.forEach(inspection => {
+        const daysOverdue = Math.floor((now.getTime() - new Date(inspection.scheduled_date).getTime()) / (1000 * 60 * 60 * 24))
+        activities.push({
+          id: `insp-${inspection.id}`,
+          type: 'inspection',
+          message: `OVERDUE: ${inspection.title} (${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue)`,
+          time: `Inspector: ${inspection.inspector}`,
+          status: 'warning'
         })
       })
 
@@ -97,7 +131,7 @@ export default function Dashboard() {
 
       setRecentActivities(activities.slice(0, 6))
     }
-  }, [inventoryItems, repairItems, jobCards, maintenanceSchedules, loading])
+  }, [inventoryItems, repairItems, jobCards, maintenanceSchedules, inspections, loading])
 
   const getRelativeTime = (dateString: string): string => {
     const date = new Date(dateString)
@@ -266,6 +300,84 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Upcoming Inspections Section */}
+      {upcomingInspections.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white rounded-lg shadow"
+        >
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <ClipboardCheck className="h-5 w-5 text-purple-600 mr-2" />
+                Upcoming Inspections
+              </h3>
+              <a href="/inspections" className="text-sm text-green-600 hover:text-green-700 font-medium">
+                View All →
+              </a>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspector</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {upcomingInspections.map((inspection) => {
+                    const now = new Date()
+                    const scheduledDate = new Date(inspection.scheduled_date)
+                    const isOverdue = scheduledDate < now
+                    const isToday = scheduledDate.toDateString() === now.toDateString()
+                    
+                    return (
+                      <tr key={inspection.id} className={isOverdue ? 'bg-red-50' : isToday ? 'bg-yellow-50' : ''}>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{inspection.title}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full capitalize">
+                            {inspection.type.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {inspection.inspector}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {scheduledDate.toLocaleDateString()} at {scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {isOverdue ? (
+                            <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full flex items-center w-fit">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Overdue
+                            </span>
+                          ) : isToday ? (
+                            <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                              Today
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full capitalize">
+                              {inspection.status.replace('_', ' ')}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </motion.div>
+      )}
       </>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
-import type { Asset, FuelRecord, InventoryItem } from '../types/database'
+import type { Asset, FuelRecord, InventoryItem, JobCard } from '../types/database'
 
 interface ExportOptions {
   format: 'csv' | 'excel' | 'pdf'
@@ -32,6 +32,10 @@ interface FuelRecordExport extends ExportRecord {
   'Receipt Number': string
   'Fuel Grade': string
   'Odometer Reading': string
+  'Previous Hours': string
+  'Current Hours': string
+  'Hours Used': string
+  'Consumption Rate (L/H)': string
   'Notes': string
 }
 
@@ -62,6 +66,69 @@ interface AssetExport extends ExportRecord {
   'Created': string
 }
 
+interface JobCardExport extends ExportRecord {
+  'Title': string
+  'Status': string
+  'Priority': string
+  'Assigned To': string
+  'Location': string
+  'Due Date': string
+  'Estimated Hours': number
+  'Actual Hours': string
+  'Duration (Days)': string
+  'Asset Name': string
+  'Asset Type': string
+  'Hour Meter Reading': string
+  'Tags': string
+  'Notes': string
+  'Created At': string
+  'Updated At': string
+}
+
+// Add MaintenanceSchedule interface
+interface MaintenanceSchedule {
+  id: string
+  last_completed?: string | null
+  equipment_name: string
+  maintenance_type: string
+  status: string
+  priority: string
+  assigned_technician?: string | null
+  current_hours?: number | null
+  interval_type: string
+  interval_value: number
+  next_due_date: string
+  estimated_cost?: number | null
+  failure_probability: number
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Add interface for comprehensive report data sources
+interface ComprehensiveAsset {
+  status?: string
+  purchase_cost?: number
+}
+
+interface ComprehensiveFuelRecord {
+  quantity?: number
+  cost?: number
+}
+
+interface ComprehensiveMaintenance {
+  status?: string
+  priority?: string
+}
+
+interface ComprehensiveInventory {
+  status?: string
+  unit_cost?: number
+  current_stock: number
+}
+
+type AssetSummary = Pick<Asset, 'id' | 'name' | 'type' | 'location' | 'current_hours'>
+
 interface ExportProgress {
   stage: 'preparing' | 'fetching' | 'processing' | 'generating' | 'complete'
   progress: number
@@ -74,6 +141,7 @@ interface UseExportDataReturn {
   exportInventoryData: (options: ExportOptions) => Promise<void>
   exportAssetData: (options: ExportOptions) => Promise<void>
   exportComprehensiveReport: (options: ExportOptions) => Promise<void>
+  exportJobCards: (options: ExportOptions) => Promise<void>
   isExporting: boolean
   progress: ExportProgress | null
   error: string | null
@@ -249,6 +317,10 @@ ${data.map(row =>
         'Receipt Number': record.receipt_number ?? 'N/A',
         'Fuel Grade': record.fuel_grade ?? 'N/A',
         'Odometer Reading': record.odometer_reading?.toString() ?? 'N/A',
+        'Previous Hours': record.previous_hours?.toString() ?? 'N/A',
+        'Current Hours': record.current_hours?.toString() ?? 'N/A',
+        'Hours Used': record.hour_difference?.toString() ?? 'N/A',
+        'Consumption Rate (L/H)': record.consumption_rate?.toFixed(2) ?? 'N/A',
         'Notes': record.notes ?? ''
       })) ?? []
       
@@ -294,7 +366,7 @@ ${data.map(row =>
     }
   }, [updateProgress, generateCSV, generateExcel, generatePDF, downloadFile])
 
-  // Export maintenance records
+  // Export maintenance records - FIXED
   const exportMaintenanceRecords = useCallback(async (options: ExportOptions) => {
     try {
       setIsExporting(true)
@@ -314,7 +386,10 @@ ${data.map(row =>
       
       updateProgress('processing', 60, 'Processing maintenance data...')
       
-      const exportData: ExportRecord[] = (maintenanceData ?? []).map(schedule => ({
+      // Type the data properly
+      const typedData = (maintenanceData ?? []) as MaintenanceSchedule[]
+      
+      const exportData: ExportRecord[] = typedData.map(schedule => ({
         'Date': schedule.last_completed 
           ? new Date(schedule.last_completed).toLocaleDateString() 
           : 'Not yet completed',
@@ -322,11 +397,11 @@ ${data.map(row =>
         'Maintenance Type': schedule.maintenance_type,
         'Status': schedule.status,
         'Priority': schedule.priority,
-        'Assigned To': schedule.assigned_technician,
+        'Assigned To': schedule.assigned_technician ?? 'Unassigned',
         'Current Hours': schedule.current_hours?.toString() ?? 'N/A',
         'Interval Type': schedule.interval_type,
-        'Interval Value': schedule.interval_value.toString(),
-        'Next Due Date': new Date(schedule.next_due_date).toLocaleDateString(),
+        'Interval Value': schedule.interval_value?.toString() ?? '0',
+        'Next Due Date': schedule.next_due_date ? new Date(schedule.next_due_date).toLocaleDateString() : 'N/A',
         'Estimated Cost': schedule.estimated_cost?.toFixed(2) ?? 'N/A',
         'Failure Probability': `${(schedule.failure_probability * 100).toFixed(1)}%`,
         'Notes': schedule.notes ?? ''
@@ -522,7 +597,137 @@ ${data.map(row =>
     }
   }, [updateProgress, generateCSV, generateExcel, generatePDF, downloadFile])
 
-  // Export comprehensive report
+  // Export job cards
+  const exportJobCards = useCallback(async (options: ExportOptions) => {
+    try {
+      setIsExporting(true)
+      setError(null)
+
+      updateProgress('preparing', 10, 'Preparing job cards export...')
+
+      let query = supabase
+        .from('job_cards')
+        .select('*')
+
+      if (options.dateRange) {
+        query = query
+          .gte('due_date', options.dateRange.start)
+          .lte('due_date', options.dateRange.end)
+      }
+
+      if (options.assetIds && options.assetIds.length > 0) {
+        query = query.in('asset_id', options.assetIds)
+      }
+
+      updateProgress('fetching', 30, 'Fetching job cards...')
+
+      const { data: jobData, error: fetchError } = await query.order('created_at', { ascending: false })
+
+      if (fetchError) throw fetchError
+
+      const jobs = (jobData as JobCard[]) ?? []
+      const assetIds = Array.from(new Set(jobs.map(job => job.asset_id).filter((id): id is string => Boolean(id))))
+      let assetMap: Record<string, AssetSummary> = {}
+
+      if (assetIds.length > 0) {
+        const { data: assetData, error: assetError } = await supabase
+          .from('assets')
+          .select('id, name, type, location, current_hours')
+          .in('id', assetIds)
+
+        if (assetError) throw assetError
+
+        assetMap = (assetData as AssetSummary[]).reduce<Record<string, AssetSummary>>((acc, asset) => {
+          acc[asset.id] = asset
+          return acc
+        }, {})
+      }
+
+      updateProgress('processing', 60, 'Processing job card data...')
+
+      const exportData: JobCardExport[] = jobs.map((job) => {
+        const asset = job.asset_id ? assetMap[job.asset_id] : undefined
+        
+        // Calculate duration (days from creation to completion or now)
+        const createdDate = new Date(job.created_at)
+        const endDate = job.status === 'completed' && job.completed_date 
+          ? new Date(job.completed_date) 
+          : new Date()
+        const durationMs = endDate.getTime() - createdDate.getTime()
+        const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24))
+        const durationHours = Math.floor((durationMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const durationText = job.status === 'completed' 
+          ? `${durationDays}d ${durationHours}h (completed)` 
+          : `${durationDays}d ${durationHours}h (active)`
+        
+        return {
+          'Title': job.title,
+          'Status': job.status,
+          'Priority': job.priority,
+          'Assigned To': job.assigned_to,
+          'Location': job.location,
+          'Due Date': job.due_date ? new Date(job.due_date).toLocaleDateString() : 'N/A',
+          'Estimated Hours': job.estimated_hours,
+          'Actual Hours': job.actual_hours?.toString() ?? 'N/A',
+          'Duration (Days)': durationText,
+          'Asset Name': asset?.name ?? 'Unassigned',
+          'Asset Type': asset?.type ?? 'N/A',
+          'Hour Meter Reading': job.hour_meter_reading?.toString() ?? 'N/A',
+          'Tags': job.tags?.length ? job.tags.join(', ') : '',
+          'Notes': job.notes ?? '',
+          'Created At': new Date(job.created_at).toLocaleString(),
+          'Updated At': new Date(job.updated_at).toLocaleString()
+        }
+      })
+
+      if (exportData.length === 0) {
+        updateProgress('complete', 100, 'No job cards to export')
+        toast('No job cards found for the selected filters', { icon: 'ℹ️' })
+        return
+      }
+
+      const headers = Object.keys(exportData[0] ?? {})
+
+      updateProgress('generating', 80, 'Generating job cards export...')
+
+      const timestamp = new Date().toISOString().split('T')[0]
+      let filename: string
+      let blob: Blob
+
+      switch (options.format) {
+        case 'csv':
+          filename = `job-cards-${timestamp}.csv`
+          blob = new Blob([generateCSV(exportData, headers)], { type: 'text/csv' })
+          break
+        case 'excel':
+          filename = `job-cards-${timestamp}.xlsx`
+          blob = generateExcel(exportData, headers, 'Job Cards')
+          break
+        case 'pdf':
+          filename = `job-cards-${timestamp}.pdf`
+          blob = generatePDF(exportData, headers, 'Job Cards Report')
+          break
+        default:
+          throw new Error('Unsupported export format')
+      }
+
+      updateProgress('complete', 100, 'Download ready!')
+
+      downloadFile(blob, filename)
+      toast.success(`Job cards exported successfully as ${options.format.toUpperCase()}`)
+
+    } catch (err) {
+      const error = err as Error
+      console.error('Export error:', error)
+      setError(error.message ?? 'Export failed')
+      toast.error('Failed to export job cards')
+    } finally {
+      setIsExporting(false)
+      setTimeout(() => setProgress(null), 3000)
+    }
+  }, [updateProgress, generateCSV, generateExcel, generatePDF, downloadFile])
+
+  // Export comprehensive report - FIXED
   const exportComprehensiveReport = useCallback(async (options: ExportOptions) => {
     try {
       setIsExporting(true)
@@ -547,10 +752,11 @@ ${data.map(row =>
       
       updateProgress('processing', 60, 'Processing comprehensive data...')
       
-      const assets = assetsResult.data ?? []
-      const fuelRecords = fuelResult.data ?? []
-      const maintenance = maintenanceResult.data ?? []
-      const inventory = inventoryResult.data ?? []
+      // Type the data properly
+      const assets = (assetsResult.data ?? []) as ComprehensiveAsset[]
+      const fuelRecords = (fuelResult.data ?? []) as ComprehensiveFuelRecord[]
+      const maintenance = (maintenanceResult.data ?? []) as ComprehensiveMaintenance[]
+      const inventory = (inventoryResult.data ?? []) as ComprehensiveInventory[]
       
       const totalFuel = fuelRecords.reduce((sum, r) => sum + (r.quantity ?? 0), 0)
       const totalFuelCost = fuelRecords.reduce((sum, r) => sum + (r.cost ?? 0), 0)
@@ -563,7 +769,7 @@ ${data.map(row =>
           'Active Assets': assets.filter(a => a.status === 'active').length.toString(),
           'In Maintenance': assets.filter(a => a.status === 'maintenance').length.toString(),
           'Retired': assets.filter(a => a.status === 'retired').length.toString(),
-          'Total Purchase Cost': assets.reduce((sum, a) => sum + (a.purchase_cost ?? 0), 0).toFixed(2)
+          'Total Purchase Cost': assets.reduce((sum, a) => sum + ((a.purchase_cost ?? 0) * 1), 0).toFixed(2)
         },
         {
           'Report Section': 'Fuel Consumption',
@@ -638,6 +844,7 @@ ${data.map(row =>
     exportMaintenanceRecords,
     exportInventoryData,
     exportAssetData,
+    exportJobCards,
     exportComprehensiveReport,
     isExporting,
     progress,

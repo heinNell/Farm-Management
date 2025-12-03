@@ -1,7 +1,7 @@
 import { Edit, Plus, Receipt, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase'; // Import supabase for asset fetching
-import { Asset, FuelRecord } from '../../types/database';
+import type { Asset, FuelBunker, FuelRecord } from '../../types/database';
 import FormSelect from '../ui/FormSelect';
 
 interface Farm {
@@ -13,7 +13,7 @@ interface Farm {
 interface FuelRecordModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (recordData: Omit<FuelRecord, '_id'>) => Promise<void>
+  onSave: (recordData: Omit<FuelRecord, '_id'>, sourceBunkerId?: string) => Promise<void>
   record?: FuelRecord | null
 }
 
@@ -39,14 +39,18 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
     operator_id: record?.operator_id || '',
     driver_name: record?.driver_name || '',
     attendant_name: record?.attendant_name || '',
-    current_hours: 0
+    current_hours: record?.current_hours || 0,
+    source_bunker_id: ''
   });
   
   const [assets, setAssets] = useState<Asset[]>([]); // State for assets
   const [farms, setFarms] = useState<Farm[]>([]); // State for farms
+  const [bunkers, setBunkers] = useState<FuelBunker[]>([]); // State for bunkers
+  const [lastFuelRecord, setLastFuelRecord] = useState<FuelRecord | null>(null); // Last fuel record for the selected asset
   const [loadingAssets, setLoadingAssets] = useState(true); // Loading state
   const [consumptionRate, setConsumptionRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fuelSource, setFuelSource] = useState<'bunker' | 'external'>('bunker'); // Track fuel source
   
   // Fetch assets when the modal opens
   useEffect(() => {
@@ -75,9 +79,22 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
           setFarms(data as Farm[]);
         }
       };
+
+      const fetchBunkers = async () => {
+        const { data, error } = await supabase
+          .from('fuel_bunkers')
+          .select('*')
+          .eq('status', 'active')
+          .order('tank_name');
+
+        if (!error && data) {
+          setBunkers(data as FuelBunker[]);
+        }
+      };
   
       void fetchAssets();
       void fetchFarms();
+      void fetchBunkers();
       
       // Reset form data
       setFormData({
@@ -96,21 +113,103 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
         operator_id: record?.operator_id || '',
         driver_name: record?.driver_name || '',
         attendant_name: record?.attendant_name || '',
-        current_hours: 0
+        current_hours: record?.current_hours || 0,
+        source_bunker_id: ''
       });
 
-      setConsumptionRate(null);
+      // If editing a record with consumption rate, show it
+      if (record?.consumption_rate) {
+        setConsumptionRate(record.consumption_rate);
+      } else {
+        setConsumptionRate(null);
+      }
+
+      // Reset fuel source to bunker
+      setFuelSource('bunker');
+      
+      // Reset last fuel record
+      setLastFuelRecord(null);
     }
   }, [isOpen, record]);
+
+  // Fetch the last fuel record for the selected asset when asset or filling_date changes
+  useEffect(() => {
+    if (formData.asset_id && isOpen) {
+      const fetchLastFuelRecord = async () => {
+        // Get the last fuel record for this asset BEFORE the current filling date
+        // This ensures we're comparing against the chronologically previous fill
+        let query = supabase
+          .from('fuel_records')
+          .select('*')
+          .eq('asset_id', formData.asset_id)
+          .order('filling_date', { ascending: false })
+          .order('current_hours', { ascending: false });
+        
+        // If we have a filling date, only get records before this date
+        if (formData.filling_date) {
+          query = query.lt('filling_date', formData.filling_date);
+        }
+        
+        // If editing, exclude the current record
+        if (record?.id) {
+          query = query.neq('id', record.id);
+        }
+        
+        const { data, error } = await query.limit(1);
+        
+        if (!error && data && data.length > 0) {
+          setLastFuelRecord(data[0] as FuelRecord);
+        } else {
+          setLastFuelRecord(null);
+        }
+      };
+      
+      void fetchLastFuelRecord();
+    }
+  }, [formData.asset_id, formData.filling_date, isOpen, record?.id]);
+
+  // Filter bunkers based on selected location (farm)
+  const filteredBunkers = bunkers.filter(bunker => {
+    if (!formData.location) return true;
+    return bunker.location === formData.location || bunker.tank_name.toLowerCase().includes(formData.location.toLowerCase());
+  });
+
+  const selectedBunker = bunkers.find(b => b.id === formData.source_bunker_id);
 
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
     
     const selectedAsset = assets.find(asset => asset.id === formData.asset_id);
-    // Validate current_hours
-    if (selectedAsset && selectedAsset.current_hours && formData.current_hours <= selectedAsset.current_hours) {
-      alert(`Current hour meter reading (${formData.current_hours}) must be greater than the previous reading (${selectedAsset.current_hours})`);
-      return;
+    
+    // Validate current_hours - only warn if:
+    // 1. Creating a new record after the last transaction date with lower hours, OR
+    // 2. Editing a record and the new date is after the last transaction date with lower hours
+    if (selectedAsset && lastFuelRecord && formData.current_hours > 0 && formData.filling_date) {
+      const newDate = new Date(formData.filling_date);
+      const lastFillingDate = lastFuelRecord.filling_date || lastFuelRecord.date;
+      const lastDate = new Date(lastFillingDate);
+      const lastHours = lastFuelRecord.current_hours || 0;
+      
+      // Only warn if the new date is after the last transaction date AND hours are less than last transaction
+      if (newDate > lastDate && formData.current_hours < lastHours) {
+        const confirmProceed = window.confirm(
+          `Warning: The current hour meter reading (${formData.current_hours}) is less than the previous reading (${lastHours}) ` +
+          `from ${lastDate.toLocaleDateString()}.\n\n` +
+          `This might indicate an error. Do you want to proceed anyway?`
+        );
+        if (!confirmProceed) {
+          return;
+        }
+      }
+    }
+
+    // Validate bunker has enough fuel if using bunker source
+    if (fuelSource === 'bunker' && formData.source_bunker_id) {
+      const bunker = bunkers.find(b => b.id === formData.source_bunker_id);
+      if (bunker && formData.quantity > bunker.current_level) {
+        alert(`Insufficient fuel in bunker. Available: ${bunker.current_level.toFixed(2)} L, Requested: ${formData.quantity} L`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -118,8 +217,9 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
     void (async () => {
       try {
         // Calculate hour difference and consumption rate
-        const previousHours = selectedAsset?.current_hours || null;
-        const hourDifference = previousHours && formData.current_hours > 0 
+        // When editing, preserve the original previous_hours; when creating, use asset's current hours or lastFuelRecord
+        const previousHours = record?.previous_hours ?? lastFuelRecord?.current_hours ?? selectedAsset?.current_hours ?? null;
+        const hourDifference = previousHours !== null && formData.current_hours > 0 
           ? formData.current_hours - previousHours 
           : null;
         const calculatedConsumptionRate = hourDifference && hourDifference > 0 
@@ -145,10 +245,13 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
           updated_at: new Date().toISOString()
         };
         
-        await onSave(dataToSave);
+        // Pass the bunker ID to the onSave handler for withdrawal
+        const sourceBunkerId = fuelSource === 'bunker' && formData.source_bunker_id ? formData.source_bunker_id : undefined;
+        await onSave(dataToSave, sourceBunkerId);
         onClose();
       } catch (error) {
         console.error('Failed to save fuel record:', error);
+        alert('Failed to save fuel record. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -176,10 +279,16 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
       // Calculate consumption rate when current_hours or quantity changes
       if (name === 'current_hours' || name === 'quantity' || name === 'asset_id') {
         const asset = assets.find(a => a.id === updated.asset_id);
-        if (asset && asset.current_hours && updated.current_hours > asset.current_hours) {
-          const hoursDiff = updated.current_hours - asset.current_hours;
+        // When editing, use the previous_hours from the record being edited, or lastFuelRecord's hours
+        // When creating, use the asset's current hours
+        const previousHoursForCalc = record?.previous_hours ?? lastFuelRecord?.current_hours ?? asset?.current_hours ?? 0;
+        
+        if (updated.current_hours > previousHoursForCalc) {
+          const hoursDiff = updated.current_hours - previousHoursForCalc;
           if (hoursDiff > 0 && updated.quantity > 0) {
             setConsumptionRate(updated.quantity / hoursDiff);
+          } else {
+            setConsumptionRate(null);
           }
         } else {
           setConsumptionRate(null);
@@ -341,10 +450,10 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
               />
               {selectedAsset && (
                 <p className="text-sm text-gray-500 mt-1">
-                  Previous reading: {selectedAsset.current_hours ?? 0}h
-                  {formData.current_hours > 0 && selectedAsset.current_hours && formData.current_hours > selectedAsset.current_hours && (
+                  Previous reading: {record?.previous_hours ?? lastFuelRecord?.current_hours ?? selectedAsset.current_hours ?? 0}h
+                  {formData.current_hours > 0 && (record?.previous_hours ?? lastFuelRecord?.current_hours ?? selectedAsset.current_hours ?? 0) > 0 && formData.current_hours > (record?.previous_hours ?? lastFuelRecord?.current_hours ?? selectedAsset.current_hours ?? 0) && (
                     <span className="text-blue-600 font-medium ml-2">
-                      • Hours used: {(formData.current_hours - selectedAsset.current_hours).toFixed(1)}h
+                      • Hours used: {(formData.current_hours - (record?.previous_hours ?? lastFuelRecord?.current_hours ?? selectedAsset.current_hours ?? 0)).toFixed(1)}h
                     </span>
                   )}
                 </p>
@@ -433,6 +542,91 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
                   placeholder="5000.0"
                 />
               </div>
+            </div>
+
+            {/* Fuel Source Selection */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Fuel Source
+              </label>
+              <div className="flex gap-4 mb-3">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="fuelSource"
+                    value="bunker"
+                    checked={fuelSource === 'bunker'}
+                    onChange={() => setFuelSource('bunker')}
+                    className="mr-2 text-green-600 focus:ring-green-500"
+                  />
+                  <span className="text-sm">Farm Bunker</span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="fuelSource"
+                    value="external"
+                    checked={fuelSource === 'external'}
+                    onChange={() => {
+                      setFuelSource('external');
+                      setFormData(prev => ({ ...prev, source_bunker_id: '' }));
+                    }}
+                    className="mr-2 text-green-600 focus:ring-green-500"
+                  />
+                  <span className="text-sm">External Source (Fuel Station)</span>
+                </label>
+              </div>
+
+              {fuelSource === 'bunker' && (
+                <div>
+                  <FormSelect
+                    label="Select Bunker"
+                    name="source_bunker_id"
+                    value={formData.source_bunker_id}
+                    onChange={(value) => setFormData(prev => ({ ...prev, source_bunker_id: value }))}
+                    options={[
+                      { value: '', label: 'Select a fuel bunker' },
+                      ...filteredBunkers.map((bunker) => ({
+                        value: bunker.id,
+                        label: `${bunker.tank_name} - ${bunker.current_level.toFixed(0)}L / ${bunker.capacity.toFixed(0)}L (${bunker.location || 'No location'})`
+                      }))
+                    ]}
+                    required={fuelSource === 'bunker'}
+                  />
+                  {selectedBunker && (
+                    <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Available Fuel:</span>
+                        <span className={`font-medium ${selectedBunker.current_level < formData.quantity ? 'text-red-600' : 'text-green-600'}`}>
+                          {selectedBunker.current_level.toFixed(2)} L
+                        </span>
+                      </div>
+                      {formData.quantity > 0 && (
+                        <div className="flex items-center justify-between text-sm mt-1">
+                          <span className="text-gray-600">After Filling:</span>
+                          <span className={`font-medium ${selectedBunker.current_level - formData.quantity < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                            {(selectedBunker.current_level - formData.quantity).toFixed(2)} L
+                          </span>
+                        </div>
+                      )}
+                      {selectedBunker.current_level < formData.quantity && (
+                        <p className="text-xs text-red-600 mt-2">⚠️ Insufficient fuel in this bunker</p>
+                      )}
+                    </div>
+                  )}
+                  {filteredBunkers.length === 0 && (
+                    <p className="text-sm text-orange-600 mt-2">
+                      No active bunkers found {formData.location ? `for ${formData.location}` : ''}. Select a different location or use external source.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {fuelSource === 'external' && (
+                <p className="text-sm text-gray-500">
+                  Fuel from external source will not affect bunker levels.
+                </p>
+              )}
             </div>
 
             <div>

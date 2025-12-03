@@ -149,13 +149,9 @@ const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({ fuelRecords, assets }) =>
     
     // Calculate averages and derived metrics
     const kpis = Array.from(kpiMap.values()).map(kpi => {
-      const consumptionRates = filteredRecords
-        .filter((r: FuelRecord) => r.asset_id === kpi.assetId && r.consumption_rate)
-        .map((r: FuelRecord) => r.consumption_rate!);
-      
-      kpi.averageConsumption = consumptionRates.length > 0
-        ? consumptionRates.reduce((sum, rate) => sum + rate, 0) / consumptionRates.length
-        : 0;
+      // Calculate average consumption rate (L/H) as weighted average: Total Fuel / Total Hours
+      // This is more accurate than averaging individual consumption_rate values
+      kpi.averageConsumption = kpi.totalHours > 0 ? kpi.totalFuelQuantity / kpi.totalHours : 0;
       
       kpi.costPerHour = kpi.totalHours > 0 ? kpi.totalCost / kpi.totalHours : 0;
       kpi.averageFuelEfficiency = kpi.averageConsumption > 0 ? 1 / kpi.averageConsumption : 0;
@@ -201,13 +197,9 @@ const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({ fuelRecords, assets }) =>
       const uniqueAssets = new Set(driverRecords.map((r: FuelRecord) => r.asset_id));
       kpi.assetsOperated = uniqueAssets.size;
       
-      const consumptionRates = driverRecords
-        .filter((r: FuelRecord) => r.consumption_rate)
-        .map((r: FuelRecord) => r.consumption_rate!);
-      
-      kpi.averageConsumption = consumptionRates.length > 0
-        ? consumptionRates.reduce((sum, rate) => sum + rate, 0) / consumptionRates.length
-        : 0;
+      // Calculate average consumption rate (L/H) as weighted average: Total Fuel / Total Hours
+      // This is more accurate than averaging individual consumption_rate values
+      kpi.averageConsumption = kpi.totalHours > 0 ? kpi.totalFuelQuantity / kpi.totalHours : 0;
       
       kpi.costPerHour = kpi.totalHours > 0 ? kpi.totalCost / kpi.totalHours : 0;
       
@@ -223,7 +215,8 @@ const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({ fuelRecords, assets }) =>
     
     filteredRecords.forEach((record: FuelRecord) => {
       const asset = assets.find(a => a.id === record.asset_id);
-      const location = asset?.location || 'Unknown';
+      // Use asset location first, then fall back to fuel record location, then 'Unknown'
+      const location = asset?.location || record.location || 'Unknown';
       
       const existing = kpiMap.get(location) || {
         location,
@@ -251,19 +244,16 @@ const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({ fuelRecords, assets }) =>
     const kpis = Array.from(kpiMap.values()).map(kpi => {
       const locationRecords = filteredRecords.filter((r: FuelRecord) => {
         const asset = assets.find((a: Asset) => a.id === r.asset_id);
-        return asset?.location === kpi.location;
+        const recordLocation = asset?.location || r.location || 'Unknown';
+        return recordLocation === kpi.location;
       });
       
       const uniqueAssets = new Set(locationRecords.map((r: FuelRecord) => r.asset_id));
       kpi.assetsCount = uniqueAssets.size;
       
-      const consumptionRates = locationRecords
-        .filter((r: FuelRecord) => r.consumption_rate)
-        .map((r: FuelRecord) => r.consumption_rate!);
-      
-      kpi.averageConsumption = consumptionRates.length > 0
-        ? consumptionRates.reduce((sum, rate) => sum + rate, 0) / consumptionRates.length
-        : 0;
+      // Calculate average consumption rate (L/H) as weighted average: Total Fuel / Total Hours
+      // This is more accurate than averaging individual consumption_rate values
+      kpi.averageConsumption = kpi.totalHours > 0 ? kpi.totalFuelQuantity / kpi.totalHours : 0;
       
       kpi.costPerHour = kpi.totalHours > 0 ? kpi.totalCost / kpi.totalHours : 0;
       
@@ -279,13 +269,9 @@ const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({ fuelRecords, assets }) =>
     const totalCost = filteredRecords.reduce((sum: number, r: FuelRecord) => sum + r.cost, 0);
     const totalHours = filteredRecords.reduce((sum: number, r: FuelRecord) => sum + (r.hour_difference || 0), 0);
     
-    const validConsumptionRates = filteredRecords
-      .filter((r: FuelRecord) => r.consumption_rate && r.consumption_rate > 0)
-      .map((r: FuelRecord) => r.consumption_rate!);
-    
-    const avgConsumption = validConsumptionRates.length > 0
-      ? validConsumptionRates.reduce((sum: number, rate: number) => sum + rate, 0) / validConsumptionRates.length
-      : 0;
+    // Calculate average consumption rate (L/H) as weighted average: Total Fuel / Total Hours
+    // This is more accurate than averaging individual consumption_rate values
+    const avgConsumption = totalHours > 0 ? totalQuantity / totalHours : 0;
     
     const highestCostPerHour = Math.max(...assetKPIs.map(k => k.costPerHour), 0);
     const lowestCostPerHour = Math.min(...assetKPIs.filter(k => k.costPerHour > 0).map(k => k.costPerHour), Infinity);

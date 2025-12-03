@@ -7,10 +7,10 @@ import useExportData from '../../hooks/useExportData'
 interface ExportManagerProps {
   isOpen: boolean
   onClose: () => void
-  defaultDataType?: 'fuel' | 'maintenance' | 'inventory' | 'assets' | 'comprehensive'
+  defaultDataType?: 'fuel' | 'maintenance' | 'inventory' | 'assets' | 'jobs' | 'comprehensive'
 }
 
-type ExportDataType = 'fuel' | 'maintenance' | 'inventory' | 'assets' | 'comprehensive'
+type ExportDataType = 'fuel' | 'maintenance' | 'inventory' | 'assets' | 'jobs' | 'comprehensive'
 type ExportFormat = 'csv' | 'excel' | 'pdf'
 
 export const ExportManager: React.FC<ExportManagerProps> = ({
@@ -23,6 +23,7 @@ export const ExportManager: React.FC<ExportManagerProps> = ({
     exportMaintenanceRecords,
     exportInventoryData,
     exportAssetData,
+    exportJobCards,
     exportComprehensiveReport,
     isExporting,
     progress,
@@ -52,6 +53,7 @@ export const ExportManager: React.FC<ExportManagerProps> = ({
     { value: 'maintenance', label: 'Maintenance Records', description: 'Scheduled and completed maintenance' },
     { value: 'inventory', label: 'Inventory Data', description: 'Stock levels and item information' },
     { value: 'assets', label: 'Asset Data', description: 'Equipment and asset information' },
+    { value: 'jobs', label: 'Job Cards', description: 'Work orders, assignments, and status' },
     { value: 'comprehensive', label: 'Comprehensive Report', description: 'All data combined with analytics' }
   ]
 
@@ -87,6 +89,9 @@ export const ExportManager: React.FC<ExportManagerProps> = ({
             break
           case 'assets':
             await exportAssetData(exportOptions)
+            break
+          case 'jobs':
+            await exportJobCards(exportOptions)
             break
           case 'comprehensive':
             await exportComprehensiveReport(exportOptions)

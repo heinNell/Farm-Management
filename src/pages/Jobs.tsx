@@ -1,11 +1,13 @@
 
 import { motion } from 'framer-motion'
-import { AlertTriangle, Clock, MapPin, Plus, Search, User } from 'lucide-react'
+import { AlertTriangle, Clock, Download, MapPin, Plus, Search, User, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import JobKanban from '../components/JobKanban'
+import JobExecutionModal from '../components/modals/JobExecutionModal'
 import JobModal from '../components/modals/JobModal'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import type { JobCard, JobFormData } from '../types/database'
+import { downloadJobCardPDF } from '../utils/jobCardPDF'
 
 const columns = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
@@ -22,6 +24,8 @@ export default function Jobs() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [showModal, setShowModal] = useState(false)
   const [editingJob, setEditingJob] = useState<JobCard | null>(null)
+  const [showExecutionModal, setShowExecutionModal] = useState(false)
+  const [executingJob, setExecutingJob] = useState<JobCard | null>(null)
 
   useEffect(() => {
     void refresh()
@@ -64,7 +68,8 @@ export default function Jobs() {
         notes: data.notes ?? null,
         completed_date: null,
         asset_id: data.asset_id ?? null,
-        hour_meter_reading: data.hour_meter_reading ?? null
+        hour_meter_reading: data.hour_meter_reading ?? null,
+        extended_data: null
       })
     }
     await refresh()
@@ -80,6 +85,22 @@ export default function Jobs() {
     setEditingJob(null)
   }
 
+  const handleWorkOnJob = (job: JobCard) => {
+    setExecutingJob(job)
+    setShowExecutionModal(true)
+  }
+
+  const handleSaveExecution = async (data: Partial<JobCard>) => {
+    if (!executingJob) return
+    await update(executingJob.id, data)
+    await refresh()
+  }
+
+  const handleCloseExecutionModal = () => {
+    setShowExecutionModal(false)
+    setExecutingJob(null)
+  }
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'low': return 'text-green-600 bg-green-100'
@@ -91,6 +112,18 @@ export default function Jobs() {
 
   const isOverdue = (dueDate: string) => {
     return new Date(dueDate) < new Date()
+  }
+
+  // Calculate job duration (time from creation to now or completion)
+  const getJobDuration = (job: JobCard) => {
+    const createdDate = new Date(job.created_at)
+    const endDate = job.status === 'completed' && job.completed_date 
+      ? new Date(job.completed_date) 
+      : new Date()
+    const durationMs = endDate.getTime() - createdDate.getTime()
+    const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24))
+    const durationHours = Math.floor((durationMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    return { days: durationDays, hours: durationHours, isCompleted: job.status === 'completed' }
   }
 
   return (
@@ -249,6 +282,25 @@ export default function Jobs() {
                 </div>
               </div>
 
+              {/* Duration indicator */}
+              <div className="flex items-center gap-2 mb-4">
+                {(() => {
+                  const duration = getJobDuration(job)
+                  return (
+                    <div className={`flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                      duration.isCompleted 
+                        ? 'bg-green-100 text-green-800' 
+                        : duration.days > 7 
+                          ? 'bg-orange-100 text-orange-800' 
+                          : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      <Clock className="h-3 w-3 mr-1" />
+                      {duration.days}d {duration.hours}h {duration.isCompleted ? '(completed)' : '(active)'}
+                    </div>
+                  )
+                })()}
+              </div>
+
               <div className="flex flex-wrap gap-2 mb-4">
                 {job.tags.map(tag => (
                   <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
@@ -262,6 +314,22 @@ export default function Jobs() {
                   Status: <span className="font-medium capitalize">{job.status.replace('_', ' ')}</span>
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleWorkOnJob(job)}
+                    className="flex items-center px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 font-medium"
+                    title="Work on this job"
+                  >
+                    <Wrench className="h-4 w-4 mr-1" />
+                    Work
+                  </button>
+                  <button 
+                    onClick={() => downloadJobCardPDF(job)}
+                    className="flex items-center px-3 py-1 text-sm text-purple-600 hover:text-purple-700 font-medium"
+                    title="Download as PDF"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    PDF
+                  </button>
                   <button 
                     onClick={() => handleEditJob(job)}
                     className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -299,6 +367,14 @@ export default function Jobs() {
         onSubmit={handleCreateOrUpdateJob}
         item={editingJob}
         loading={loading}
+      />
+
+      {/* Job Execution Modal */}
+      <JobExecutionModal
+        isOpen={showExecutionModal}
+        onClose={handleCloseExecutionModal}
+        onSave={handleSaveExecution}
+        job={executingJob}
       />
     </div>
   )

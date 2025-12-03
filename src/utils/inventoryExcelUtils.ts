@@ -21,6 +21,11 @@ export interface ParseResult {
   errors: Array<{ row: number; field: string; message: string }>;
 }
 
+// Define the expected shape of Excel row data
+interface ExcelRowData {
+  [key: string]: unknown;
+}
+
 export const parseInventoryFromExcel = async (file: File): Promise<ParseResult> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -37,7 +42,7 @@ export const parseInventoryFromExcel = async (file: File): Promise<ParseResult> 
         if (!worksheet) {
           throw new Error('Worksheet not found');
         }
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+        const jsonData: ExcelRowData[] = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
         const records: ParsedInventoryItem[] = [];
         const errors: Array<{ row: number; field: string; message: string }> = [];

@@ -11,43 +11,43 @@ INSERT INTO assets (id, name, type, model, serial_number, purchase_date, status,
 
 -- Insert sample fuel prices
 INSERT INTO fuel_prices (fuel_type, price_per_liter, effective_date, location, supplier) VALUES
-('Diesel', 1.45, '2024-01-01', 'Local Station A', 'FuelCorp'),
-('Diesel', 1.48, '2024-01-15', 'Local Station A', 'FuelCorp'),
-('Diesel', 1.42, '2024-02-01', 'Local Station A', 'FuelCorp'),
-('Diesel', 1.51, '2024-02-15', 'Local Station A', 'FuelCorp'),
-('Gasoline', 1.65, '2024-01-01', 'Local Station B', 'PetroMax'),
-('Gasoline', 1.68, '2024-01-15', 'Local Station B', 'PetroMax'),
-('Gasoline', 1.62, '2024-02-01', 'Local Station B', 'PetroMax');
+('Diesel', 1.45, '2025-11-01', 'Local Station A', 'FuelCorp'),
+('Diesel', 1.48, '2025-11-08', 'Local Station A', 'FuelCorp'),
+('Diesel', 1.42, '2025-11-15', 'Local Station A', 'FuelCorp'),
+('Diesel', 1.51, '2025-11-22', 'Local Station A', 'FuelCorp'),
+('Gasoline', 1.65, '2025-11-01', 'Local Station B', 'PetroMax'),
+('Gasoline', 1.68, '2025-11-08', 'Local Station B', 'PetroMax'),
+('Gasoline', 1.62, '2025-11-15', 'Local Station B', 'PetroMax');
 
 -- Insert sample fuel records
 INSERT INTO fuel_records (asset_id, date, quantity, price_per_liter, fuel_type, location, odometer_reading, receipt_number, fuel_grade, notes) VALUES
-('11111111-1111-1111-1111-111111111111', '2024-01-05', 150.0, 1.45, 'Diesel', 'Local Station A', 12500, 'RCP-2024-001', 'Premium', 'Full tank for field work'),
-('22222222-2222-2222-2222-222222222222', '2024-01-08', 200.0, 1.45, 'Diesel', 'Local Station A', 8500, 'RCP-2024-002', 'Premium', 'Harvest season preparation'),
-('11111111-1111-1111-1111-111111111111', '2024-01-12', 120.0, 1.48, 'Diesel', 'Local Station A', 12650, 'RCP-2024-003', 'Regular', 'Mid-week refill'),
-('33333333-3333-3333-3333-333333333333', '2024-01-15', 80.0, 1.48, 'Diesel', 'Local Station A', 3200, 'RCP-2024-004', 'Premium', 'Spraying operation'),
-('55555555-5555-5555-5555-555555555555', '2024-01-18', 25.0, 1.65, 'Gasoline', 'Local Station B', 1800, 'RCP-2024-005', 'Regular', 'Weekly utility runs'),
-('22222222-2222-2222-2222-222222222222', '2024-01-20', 180.0, 1.42, 'Diesel', 'Local Station A', 8720, 'RCP-2024-006', 'Premium', 'Extended harvest operation'),
-('11111111-1111-1111-1111-111111111111', '2024-01-25', 140.0, 1.42, 'Diesel', 'Local Station A', 12800, 'RCP-2024-007', 'Regular', 'End of month refill');
+('11111111-1111-1111-1111-111111111111', '2025-11-01', 150.0, 1.45, 'Diesel', 'Local Station A', 12500, 'RCP-2025-001', 'Premium', 'Full tank for field work'),
+('22222222-2222-2222-2222-222222222222', '2025-11-03', 200.0, 1.45, 'Diesel', 'Local Station A', 8500, 'RCP-2025-002', 'Premium', 'Harvest season preparation'),
+('11111111-1111-1111-1111-111111111111', '2025-11-07', 120.0, 1.48, 'Diesel', 'Local Station A', 12650, 'RCP-2025-003', 'Regular', 'Mid-week refill'),
+('33333333-3333-3333-3333-333333333333', '2025-11-10', 80.0, 1.48, 'Diesel', 'Local Station A', 3200, 'RCP-2025-004', 'Premium', 'Spraying operation'),
+('55555555-5555-5555-5555-555555555555', '2025-11-14', 25.0, 1.65, 'Gasoline', 'Local Station B', 1800, 'RCP-2025-005', 'Regular', 'Weekly utility runs'),
+('22222222-2222-2222-2222-222222222222', '2025-11-18', 180.0, 1.42, 'Diesel', 'Local Station A', 8720, 'RCP-2025-006', 'Premium', 'Extended harvest operation'),
+('11111111-1111-1111-1111-111111111111', '2025-11-25', 140.0, 1.42, 'Diesel', 'Local Station A', 12800, 'RCP-2025-007', 'Regular', 'End of month refill');
 
 -- Insert sample operating sessions
 INSERT INTO operating_sessions (asset_id, session_start, session_end, initial_fuel_level, final_fuel_level, fuel_consumed, distance_traveled, operating_hours, efficiency_rating, operator_notes) VALUES
-('11111111-1111-1111-1111-111111111111', '2024-01-05 08:00:00+00', '2024-01-05 16:00:00+00', 95.0, 75.0, 60.0, 25.5, 8.0, 85.5, 'Field cultivation - North Field'),
-('22222222-2222-2222-2222-222222222222', '2024-01-08 07:30:00+00', '2024-01-08 18:00:00+00', 90.0, 65.0, 112.5, 15.8, 10.5, 78.2, 'Corn harvest - Main Field'),
-('33333333-3333-3333-3333-333333333333', '2024-01-15 09:00:00+00', '2024-01-15 14:00:00+00', 85.0, 70.0, 30.0, 45.2, 5.0, 92.1, 'Herbicide application - South Field'),
-('11111111-1111-1111-1111-111111111111', '2024-01-12 08:30:00+00', '2024-01-12 15:30:00+00', 80.0, 62.0, 54.0, 22.1, 7.0, 87.3, 'Soil preparation - East Field'),
-('55555555-5555-5555-5555-555555555555', '2024-01-18 10:00:00+00', '2024-01-18 12:00:00+00', 70.0, 60.0, 4.5, 18.5, 2.0, 88.9, 'Equipment transport'),
-('22222222-2222-2222-2222-222222222222', '2024-01-20 06:00:00+00', '2024-01-20 19:00:00+00', 95.0, 55.0, 180.0, 28.3, 13.0, 76.8, 'Extended harvest - Multiple fields');
+('11111111-1111-1111-1111-111111111111', '2025-11-01 08:00:00+00', '2025-11-01 16:00:00+00', 95.0, 75.0, 60.0, 25.5, 8.0, 85.5, 'Field cultivation - North Field'),
+('22222222-2222-2222-2222-222222222222', '2025-11-03 07:30:00+00', '2025-11-03 18:00:00+00', 90.0, 65.0, 112.5, 15.8, 10.5, 78.2, 'Corn harvest - Main Field'),
+('33333333-3333-3333-3333-333333333333', '2025-11-10 09:00:00+00', '2025-11-10 14:00:00+00', 85.0, 70.0, 30.0, 45.2, 5.0, 92.1, 'Herbicide application - South Field'),
+('11111111-1111-1111-1111-111111111111', '2025-11-07 08:30:00+00', '2025-11-07 15:30:00+00', 80.0, 62.0, 54.0, 22.1, 7.0, 87.3, 'Soil preparation - East Field'),
+('55555555-5555-5555-5555-555555555555', '2025-11-14 10:00:00+00', '2025-11-14 12:00:00+00', 70.0, 60.0, 4.5, 18.5, 2.0, 88.9, 'Equipment transport'),
+('22222222-2222-2222-2222-222222222222', '2025-11-18 06:00:00+00', '2025-11-18 19:00:00+00', 95.0, 55.0, 180.0, 28.3, 13.0, 76.8, 'Extended harvest - Multiple fields');
 
 -- Insert sample predictive maintenance data
 INSERT INTO predictive_maintenance (asset_id, component_name, failure_probability, predicted_failure_date, confidence_level, recommended_action, maintenance_priority) VALUES
-('11111111-1111-1111-1111-111111111111', 'Engine System', 0.25, '2024-03-15', 0.78, 'Schedule routine engine maintenance', 3),
-('11111111-1111-1111-1111-111111111111', 'Hydraulic System', 0.15, '2024-04-20', 0.65, 'Monitor hydraulic fluid levels', 4),
-('22222222-2222-2222-2222-222222222222', 'Engine System', 0.45, '2024-02-28', 0.82, 'Schedule comprehensive engine inspection', 2),
-('22222222-2222-2222-2222-222222222222', 'Transmission', 0.35, '2024-03-10', 0.71, 'Check transmission fluid and filters', 3),
-('33333333-3333-3333-3333-333333333333', 'Pump System', 0.20, '2024-04-05', 0.68, 'Inspect pump seals and pressure', 3),
-('44444444-4444-4444-4444-444444444444', 'Engine System', 0.65, '2024-02-15', 0.89, 'Schedule immediate engine overhaul', 1),
-('44444444-4444-4444-4444-444444444444', 'Seeding Mechanism', 0.55, '2024-02-20', 0.75, 'Replace worn seeding components', 2),
-('55555555-5555-5555-5555-555555555555', 'Engine System', 0.10, '2024-06-01', 0.60, 'Continue normal operations', 4);
+('11111111-1111-1111-1111-111111111111', 'Engine System', 0.25, '2025-12-15', 0.78, 'Schedule routine engine maintenance', 3),
+('11111111-1111-1111-1111-111111111111', 'Hydraulic System', 0.15, '2026-01-20', 0.65, 'Monitor hydraulic fluid levels', 4),
+('22222222-2222-2222-2222-222222222222', 'Engine System', 0.45, '2025-12-28', 0.82, 'Schedule comprehensive engine inspection', 2),
+('22222222-2222-2222-2222-222222222222', 'Transmission', 0.35, '2026-01-10', 0.71, 'Check transmission fluid and filters', 3),
+('33333333-3333-3333-3333-333333333333', 'Pump System', 0.20, '2026-01-05', 0.68, 'Inspect pump seals and pressure', 3),
+('44444444-4444-4444-4444-444444444444', 'Engine System', 0.65, '2025-12-15', 0.89, 'Schedule immediate engine overhaul', 1),
+('44444444-4444-4444-4444-444444444444', 'Seeding Mechanism', 0.55, '2025-12-20', 0.75, 'Replace worn seeding components', 2),
+('55555555-5555-5555-5555-555555555555', 'Engine System', 0.10, '2026-02-01', 0.60, 'Continue normal operations', 4);
 
 -- Update sample data for existing tables to ensure consistency
 INSERT INTO inventory_items (sku, name, category, current_stock, min_stock, max_stock, unit, location, status) VALUES
@@ -59,9 +59,9 @@ INSERT INTO inventory_items (sku, name, category, current_stock, min_stock, max_
 ON CONFLICT (sku) DO NOTHING;
 
 INSERT INTO repair_items (equipment_name, defect_tag, priority, status, description, estimated_cost, assigned_technician, warranty_status, estimated_completion) VALUES
-('Tractor Alpha', 'DEF-001', 'medium', 'pending', 'Hydraulic leak in lift cylinder', 450.00, 'Mike Johnson', 'out_of_warranty', '2024-02-10 17:00:00+00'),
-('Seeder Delta', 'DEF-002', 'high', 'in_progress', 'Engine overheating issue', 1200.00, 'Sarah Williams', 'in_warranty', '2024-02-15 17:00:00+00'),
-('Harvester Beta', 'DEF-003', 'low', 'completed', 'Replace worn belts', 180.00, 'Mike Johnson', 'out_of_warranty', '2024-01-25 17:00:00+00')
+('Tractor Alpha', 'DEF-001', 'medium', 'pending', 'Hydraulic leak in lift cylinder', 450.00, 'Mike Johnson', 'out_of_warranty', '2025-11-10 17:00:00+00'),
+('Seeder Delta', 'DEF-002', 'high', 'in_progress', 'Engine overheating issue', 1200.00, 'Sarah Williams', 'in_warranty', '2025-11-15 17:00:00+00'),
+('Harvester Beta', 'DEF-003', 'low', 'completed', 'Replace worn belts', 180.00, 'Mike Johnson', 'out_of_warranty', '2025-11-25 17:00:00+00')
 ON CONFLICT DO NOTHING;
 
 -- Run the predictive maintenance update function

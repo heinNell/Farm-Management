@@ -1,19 +1,28 @@
 import { motion } from 'framer-motion';
-import { AlertCircle, BarChart3, Clock, Fuel, History, Minus, Plus, Search, Settings, Truck } from 'lucide-react';
+import { AlertCircle, ArrowLeftRight, BarChart3, Clock, Fuel, History, Minus, Plus, Search, Settings, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import FuelBunkerModal from '../components/modals/FuelBunkerModal';
 import FuelBunkerTransactionModal from '../components/modals/FuelBunkerTransactionModal';
+import FuelBunkerTransferModal from '../components/modals/FuelBunkerTransferModal';
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
 import { supabase } from '../lib/supabase';
-import type { FuelBunker, FuelBunkerFormData, FuelBunkerTransaction } from '../types/database';
+import type { FuelBunker, FuelBunkerFormData, FuelBunkerTransaction, FuelBunkerTransferFormData } from '../types/database';
+
+interface Farm {
+  id: string
+  name: string
+}
 
 export default function FuelBunkers() {
   const { items: bunkers, loading, create, update, refresh } = useSupabaseCRUD<FuelBunker>('fuel_bunkers');
   const [searchTerm, setSearchTerm] = useState('');
   const [tankTypeFilter, setTankTypeFilter] = useState<'all' | 'stationary' | 'mobile'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'maintenance'>('all');
+  const [farmFilter, setFarmFilter] = useState<string>('all');
+  const [farms, setFarms] = useState<Farm[]>([]);
   const [showBunkerModal, setShowBunkerModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [editingBunker, setEditingBunker] = useState<FuelBunker | null>(null);
   const [selectedBunker, setSelectedBunker] = useState<FuelBunker | null>(null);
   const [transactionType, setTransactionType] = useState<'addition' | 'withdrawal' | 'adjustment'>('addition');
@@ -22,6 +31,20 @@ export default function FuelBunkers() {
 
   useEffect(() => {
     void refresh();
+    
+    // Fetch farms for filtering
+    const fetchFarms = async () => {
+      const { data, error } = await supabase
+        .from('farms')
+        .select('id, name')
+        .eq('status', 'active')
+        .order('name');
+
+      if (!error && data) {
+        setFarms(data as Farm[]);
+      }
+    };
+    void fetchFarms();
   }, [refresh]);
 
   const filteredBunkers = bunkers.filter(bunker => {
@@ -30,7 +53,8 @@ export default function FuelBunkers() {
                          (bunker.location && bunker.location.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = tankTypeFilter === 'all' || bunker.tank_type === tankTypeFilter;
     const matchesStatus = statusFilter === 'all' || bunker.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
+    const matchesFarm = farmFilter === 'all' || bunker.farm_id === farmFilter;
+    return matchesSearch && matchesType && matchesStatus && matchesFarm;
   });
 
   const handleCreateOrUpdateBunker = async (data: FuelBunkerFormData) => {
@@ -43,10 +67,29 @@ export default function FuelBunkers() {
         description: data.description || null,
         min_level: data.min_level || null,
         fuel_type: data.fuel_type || null,
+        farm_id: data.farm_id || null,
         last_filled_date: null
       });
     }
     await refresh();
+  };
+
+  const handleTransfer = async (data: FuelBunkerTransferFormData) => {
+    try {
+      const { error } = await supabase.rpc('transfer_fuel_between_bunkers', {
+        p_source_bunker_id: data.source_bunker_id,
+        p_destination_bunker_id: data.destination_bunker_id,
+        p_quantity: data.quantity,
+        p_notes: data.notes || null,
+        p_performed_by: data.performed_by || null
+      });
+
+      if (error) throw error;
+      await refresh();
+    } catch (error) {
+      console.error('Transfer failed:', error);
+      throw error;
+    }
   };
 
   const handleEditBunker = (bunker: FuelBunker) => {
@@ -154,13 +197,22 @@ export default function FuelBunkers() {
           <h1 className="text-2xl font-bold text-gray-900">Fuel Bunkers</h1>
           <p className="text-gray-600 mt-1">Manage fuel storage tanks and mobile bunkers</p>
         </div>
-        <button
-          onClick={() => setShowBunkerModal(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Add Fuel Bunker
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowTransferModal(true)}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <ArrowLeftRight className="h-5 w-5 mr-2" />
+            Transfer Fuel
+          </button>
+          <button
+            onClick={() => setShowBunkerModal(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Add Fuel Bunker
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -228,6 +280,17 @@ export default function FuelBunkers() {
             />
           </div>
         </div>
+
+        <select
+          value={farmFilter}
+          onChange={(e) => setFarmFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">All Farms</option>
+          {farms.map(farm => (
+            <option key={farm.id} value={farm.id}>{farm.name}</option>
+          ))}
+        </select>
         
         <select
           value={tankTypeFilter}
@@ -291,7 +354,12 @@ export default function FuelBunkers() {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">{bunker.tank_name}</h3>
                       <p className="text-sm text-gray-500">{bunker.tank_id}</p>
-                      {bunker.location && <p className="text-sm text-gray-600 mt-1">{bunker.location}</p>}
+                      {bunker.location && <p className="text-sm text-gray-600 mt-1">📍 {bunker.location}</p>}
+                      {bunker.farm_id && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          🏡 {farms.find(f => f.id === bunker.farm_id)?.name || 'Unknown Farm'}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(bunker.status)}`}>
@@ -371,18 +439,30 @@ export default function FuelBunkers() {
                     Adjust
                   </button>
                   <button
-                    onClick={() => { void handleViewHistory(bunker) }}
+                    onClick={() => {
+                      setSelectedBunker(bunker);
+                      setShowTransferModal(true);
+                    }}
                     className="flex items-center justify-center gap-1 text-purple-600 hover:text-purple-700 text-sm font-medium"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Transfer
+                  </button>
+                  <button
+                    onClick={() => { void handleViewHistory(bunker) }}
+                    className="flex items-center justify-center gap-1 text-gray-600 hover:text-gray-700 text-sm font-medium"
                   >
                     <History className="h-4 w-4" />
                     History
                   </button>
+                </div>
+                <div className="flex justify-center pt-2">
                   <button
                     onClick={() => handleEditBunker(bunker)}
                     className="flex items-center justify-center gap-1 text-gray-600 hover:text-gray-700 text-sm font-medium"
                   >
                     <Settings className="h-4 w-4" />
-                    Edit
+                    Edit Tank
                   </button>
                 </div>
               </motion.div>
@@ -415,6 +495,19 @@ export default function FuelBunkers() {
         />
       )}
 
+      {/* Transfer Modal */}
+      <FuelBunkerTransferModal
+        isOpen={showTransferModal}
+        onClose={() => {
+          setShowTransferModal(false);
+          setSelectedBunker(null);
+        }}
+        onSubmit={handleTransfer}
+        bunkers={bunkers}
+        sourceBunker={selectedBunker}
+        loading={loading}
+      />
+
       {/* History Modal */}
       {showHistory && selectedBunker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -443,47 +536,57 @@ export default function FuelBunkers() {
                 <p className="text-center text-gray-500 py-8">No transactions recorded</p>
               ) : (
                 <div className="space-y-3">
-                  {transactions.map((txn) => (
-                    <div key={txn.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            txn.transaction_type === 'addition' ? 'bg-green-100 text-green-700' :
-                            txn.transaction_type === 'withdrawal' ? 'bg-orange-100 text-orange-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>
-                            {txn.transaction_type}
-                          </span>
-                          <span className="text-sm font-medium text-gray-900">
-                            {txn.quantity > 0 ? '+' : ''}{txn.quantity.toFixed(2)} L
-                          </span>
+                  {transactions.map((txn) => {
+                    const relatedBunker = txn.related_bunker_id ? bunkers.find(b => b.id === txn.related_bunker_id) : null;
+                    return (
+                      <div key={txn.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              txn.transaction_type === 'addition' ? 'bg-green-100 text-green-700' :
+                              txn.transaction_type === 'withdrawal' ? 'bg-orange-100 text-orange-700' :
+                              txn.transaction_type === 'transfer_in' ? 'bg-blue-100 text-blue-700' :
+                              txn.transaction_type === 'transfer_out' ? 'bg-purple-100 text-purple-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {txn.transaction_type.replace('_', ' ')}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {txn.quantity > 0 ? '+' : ''}{txn.quantity.toFixed(2)} L
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-gray-500">
+                            <Clock className="h-4 w-4" />
+                            {new Date(txn.transaction_date).toLocaleString()}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-gray-500">
-                          <Clock className="h-4 w-4" />
-                          {new Date(txn.transaction_date).toLocaleString()}
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-600">Previous: </span>
+                            <span className="font-medium">{txn.previous_level?.toFixed(2) || 'N/A'} L</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">New: </span>
+                            <span className="font-medium">{txn.new_level?.toFixed(2) || 'N/A'} L</span>
+                          </div>
                         </div>
+                        {relatedBunker && (
+                          <p className="text-sm text-purple-600 mt-1">
+                            {txn.transaction_type === 'transfer_in' ? '← From: ' : '→ To: '}{relatedBunker.tank_name}
+                          </p>
+                        )}
+                        {txn.reference_number && (
+                          <p className="text-sm text-gray-600 mt-1">Ref: {txn.reference_number}</p>
+                        )}
+                        {txn.performed_by && (
+                          <p className="text-sm text-gray-600 mt-1">By: {txn.performed_by}</p>
+                        )}
+                        {txn.notes && (
+                          <p className="text-sm text-gray-700 mt-2 italic">{txn.notes}</p>
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-gray-600">Previous: </span>
-                          <span className="font-medium">{txn.previous_level?.toFixed(2) || 'N/A'} L</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">New: </span>
-                          <span className="font-medium">{txn.new_level?.toFixed(2) || 'N/A'} L</span>
-                        </div>
-                      </div>
-                      {txn.reference_number && (
-                        <p className="text-sm text-gray-600 mt-1">Ref: {txn.reference_number}</p>
-                      )}
-                      {txn.performed_by && (
-                        <p className="text-sm text-gray-600 mt-1">By: {txn.performed_by}</p>
-                      )}
-                      {txn.notes && (
-                        <p className="text-sm text-gray-700 mt-2 italic">{txn.notes}</p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

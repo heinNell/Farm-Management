@@ -2,6 +2,7 @@ import { Toaster } from 'react-hot-toast'
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 import AuthProvider from './components/auth/AuthProvider'
 import Layout from './components/Layout'
+import { useAutomatedAlerts } from './hooks/useAutomatedAlerts'
 import { useOfflineDetection } from './hooks/useOfflineDetection'
 import Dashboard from './pages/Dashboard'
 import FuelBunkers from './pages/FuelBunkers'
@@ -15,6 +16,9 @@ import Settings from './pages/Settings'
 
 function AppContent() {
   const isOffline = useOfflineDetection()
+  
+  // Enable automated alert generation when online
+  useAutomatedAlerts(!isOffline)
 
   return (
     <div className="min-h-screen bg-gray-50">
