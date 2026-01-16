@@ -85,6 +85,19 @@ export interface PerformanceKPI {
     consumption: number
     cost: number
   }>
+  weeklyTrendsByAssetType: Array<{
+    weekNumber: number
+    weekLabel: string
+    year: number
+    startDate: string
+    endDate: string
+    assetTypes: Record<string, {
+      consumption: number
+      totalFuel: number
+      totalHours: number
+      assetCount: number
+    }>
+  }>
 }
 
 export interface ComprehensiveFuelKPI {

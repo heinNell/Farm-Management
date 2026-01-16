@@ -1,5 +1,4 @@
 
-
 import { motion } from 'framer-motion'
 import { Calendar, CheckCircle, ClipboardList, Copy, Download, Edit2, Eye, FileText, Play, Plus, Search, Settings, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -12,6 +11,7 @@ import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import { useToast } from '../hooks/useToast'
 import { supabase } from '../lib/supabase'
 import type { Asset, ChecklistItemTemplate, Inspection, InspectionTemplate, JobCard, JobExtendedData, JobRepairItem } from '../types/database'
+import { formatDate, formatDateTime } from '../utils/fuelCalculations'
 import { downloadInspectionPDF, viewInspectionReport } from '../utils/inspectionPDF'
 
 const frequencyLabels: Record<InspectionTemplate['frequency'], string> = {
@@ -352,8 +352,8 @@ export default function Inspections() {
       }
 
       const description = allIssues.length > 0 
-        ? `Issues identified during ${inspection.type} inspection on ${new Date(inspection.scheduled_date).toLocaleDateString()}:\n\n${allIssues.join('\n')}`
-        : `Follow-up required for ${inspection.type} inspection completed on ${new Date(inspection.scheduled_date).toLocaleDateString()}.`
+        ? `Issues identified during ${inspection.type} inspection on ${formatDate(inspection.scheduled_date)}:\n\n${allIssues.join('\n')}`
+        : `Follow-up required for ${inspection.type} inspection completed on ${formatDate(inspection.scheduled_date)}.`
 
       // Create the extended data with repair items from inspection
       const extendedData: JobExtendedData = {
@@ -432,18 +432,18 @@ export default function Inspections() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 lg:space-y-6">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex-1 max-w-lg">
+      <div className="flex flex-col lg:flex-row gap-4 justify-between">
+        <div className="flex-1 max-w-xl">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search inspections..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
             />
           </div>
         </div>
@@ -451,9 +451,9 @@ export default function Inspections() {
         <div className="flex gap-2">
           <button 
             onClick={() => setShowStartModal(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors relative"
+            className="flex items-center px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors relative text-sm font-medium shadow-sm"
           >
-            <Play className="h-5 w-5 mr-2" />
+            <Play className="h-4 w-4 mr-2" />
             Start Inspection
             {alertCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -463,20 +463,20 @@ export default function Inspections() {
           </button>
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
           >
-            <Plus className="h-5 w-5 mr-2" />
+            <Plus className="h-4 w-4 mr-2" />
             Schedule
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-3 flex-wrap bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-gray-50"
         >
           <option value="all">All Statuses</option>
           <option value="scheduled">Scheduled</option>
@@ -537,7 +537,7 @@ export default function Inspections() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Scheduled:</span>
                 <span className="text-sm font-medium">
-                  {new Date(inspection.scheduled_date).toLocaleDateString()} at {new Date(inspection.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {formatDateTime(inspection.scheduled_date)}
                 </span>
               </div>
 
@@ -545,7 +545,7 @@ export default function Inspections() {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">Completed:</span>
                   <span className="text-sm font-medium">
-                    {new Date(inspection.completed_date).toLocaleDateString()}
+                    {formatDate(inspection.completed_date)}
                   </span>
                 </div>
               )}

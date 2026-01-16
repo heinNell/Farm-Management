@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type { Inspection } from '../types/database'
+import { formatDate } from '../utils/fuelCalculations'
 
 export interface InspectionAlert {
   id: string
@@ -82,7 +83,7 @@ export class InspectionAlertService {
         } else if (daysUntilDue <= 7) {
           // Upcoming - due within 7 days
           alertType = 'upcoming'
-          message = `Upcoming: ${inspection.title} (${inspection.type}) due in ${Math.ceil(daysUntilDue)} days on ${dueDate.toLocaleDateString()}. Inspector: ${inspection.inspector}`
+          message = `Upcoming: ${inspection.title} (${inspection.type}) due in ${Math.ceil(daysUntilDue)} days on ${formatDate(dueDate)}. Inspector: ${inspection.inspector}`
         } else {
           // Not urgent enough for an alert
           continue

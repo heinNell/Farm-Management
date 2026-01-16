@@ -3,6 +3,7 @@ import { AlertTriangle, Calendar, CheckCircle, Clock, Wrench } from 'lucide-reac
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, TABLES } from '../lib/supabase'
 import type { MaintenanceSchedule } from '../types/database'
+import { formatDate } from '../utils/fuelCalculations'
 import RealtimeStatus from './RealtimeStatus'
 
 interface MaintenanceStats {
@@ -238,7 +239,7 @@ export default function RealtimeMaintenanceDashboard() {
                     {dueInfo.text}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {new Date(item.next_due_date).toLocaleDateString()}
+                    {formatDate(item.next_due_date)}
                   </p>
                 </div>
               </motion.div>

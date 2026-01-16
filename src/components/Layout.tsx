@@ -127,7 +127,7 @@ export default function Layout() {
     <div className="flex h-screen bg-gray-50">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
-        <div className="bg-white shadow-sm border-r border-gray-200">
+        <div className="bg-white shadow-lg border-r border-gray-100 h-full">
           <SidebarContent />
         </div>
       </div>
@@ -197,11 +197,9 @@ export default function Layout() {
         </div>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto focus:outline-none">
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <Outlet />
-            </div>
+        <main className="flex-1 overflow-y-auto focus:outline-none bg-gray-50/50">
+          <div className="p-4 sm:p-6 lg:p-8 min-h-full">
+            <Outlet />
           </div>
         </main>
       </div>

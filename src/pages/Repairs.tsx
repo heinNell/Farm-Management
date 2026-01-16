@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import RepairModal from '../components/modals/RepairModal';
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
 import type { Asset, RepairFormData, RepairItem } from '../types/database';
+import { formatDate } from '../utils/fuelCalculations';
 
 export default function Repairs() {
   const { items: repairs, loading, create, update, delete: deleteRepair, refresh } = useSupabaseCRUD<RepairItem>('repair_items');
@@ -103,37 +104,37 @@ export default function Repairs() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 lg:space-y-6">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex-1 max-w-lg">
+      <div className="flex flex-col lg:flex-row gap-4 justify-between">
+        <div className="flex-1 max-w-xl">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search repairs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
             />
           </div>
         </div>
 
         <button 
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          className="flex items-center px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
         >
-          <Plus className="h-5 w-5 mr-2" />
+          <Plus className="h-4 w-4 mr-2" />
           New Repair
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-gray-50"
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
@@ -145,13 +146,16 @@ export default function Repairs() {
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
-          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-gray-50"
         >
           <option value="all">All Priorities</option>
           <option value="low">Low Priority</option>
           <option value="medium">Medium Priority</option>
           <option value="high">High Priority</option>
         </select>
+        <span className="text-sm text-gray-500 ml-auto self-center">
+          {filteredRepairs.length} repair{filteredRepairs.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {/* Repairs List */}
@@ -164,9 +168,12 @@ export default function Repairs() {
             </div>
           </div>
         ) : filteredRepairs.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-md">
-            <p className="text-gray-500 text-lg">No repairs found</p>
-            <p className="text-gray-400 text-sm mt-2">
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="p-4 bg-gray-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+              <Wrench className="h-10 w-10 text-gray-400" />
+            </div>
+            <p className="text-gray-900 font-medium text-lg">No repairs found</p>
+            <p className="text-gray-500 text-sm mt-2">
               {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
                 ? 'Try adjusting your filters'
                 : 'Create your first repair to get started'}
@@ -178,25 +185,25 @@ export default function Repairs() {
             key={repair.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            transition={{ delay: index * 0.05 }}
+            className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all"
           >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{repair.equipment_name}</h3>
-                  <span className="text-sm text-gray-500">#{repair.defect_tag}</span>
+                  <h3 className="text-base font-semibold text-gray-900">{repair.equipment_name}</h3>
+                  <span className="text-xs text-gray-500">#{repair.defect_tag}</span>
                   {repair.warranty_status === 'in_warranty' && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                       Under Warranty
                     </span>
                   )}
                 </div>
-                <p className="text-gray-600 mb-3">{repair.description}</p>
+                <p className="text-gray-600 text-sm mb-3">{repair.description}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <div className={`flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(repair.status)}`}>
+                <div className={`flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(repair.status)}`}>
                   {getStatusIcon(repair.status)}
                   <span className="ml-1 capitalize">{repair.status.replace('_', ' ')}</span>
                 </div>
@@ -214,14 +221,14 @@ export default function Repairs() {
               <div>
                 <span className="text-sm text-gray-500">Created:</span>
                 <p className="font-medium">
-                  {new Date(repair.created_at).toLocaleDateString()}
+                  {formatDate(repair.created_at)}
                 </p>
               </div>
               <div>
                 <span className="text-sm text-gray-500">Est. Completion:</span>
                 <p className="font-medium">
                   {repair.estimated_completion 
-                    ? new Date(repair.estimated_completion).toLocaleDateString()
+                    ? formatDate(repair.estimated_completion)
                     : 'TBD'
                   }
                 </p>

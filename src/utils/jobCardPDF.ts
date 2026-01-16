@@ -1,6 +1,7 @@
 import type { JobCard } from '../types/database'
 import type { CurrencyCode } from './currency'
 import { getCurrencySymbol, getCurrentCurrency } from './currency'
+import { formatDate, formatDateTime } from './fuelCalculations'
 
 /**
  * Generate a PDF document for a single job card
@@ -231,11 +232,11 @@ export function generateJobCardPDF(job: JobCard, assetName?: string, currencyCod
     <div class="info-grid">
       <div class="info-item">
         <div class="info-label">Created</div>
-        <div class="info-value">${new Date(job.created_at).toLocaleString()}</div>
+        <div class="info-value">${formatDateTime(job.created_at)}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Due Date</div>
-        <div class="info-value">${job.due_date ? new Date(job.due_date).toLocaleDateString() : 'Not set'}</div>
+        <div class="info-value">${job.due_date ? formatDate(job.due_date) : 'Not set'}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Estimated Hours</div>

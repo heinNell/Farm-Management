@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { AlertTriangle, Clock, MapPin, User } from 'lucide-react'
+import { formatDate } from '../utils/fuelCalculations'
 
 interface Job {
   id: string
@@ -104,7 +105,7 @@ export default function JobKanban({ jobs, columns }: JobKanbanProps) {
                       </div>
                       <div className="flex items-center text-xs text-gray-500">
                         <Clock className="h-3 w-3 mr-1" />
-                        {job.estimatedHours}h • Due {new Date(job.dueDate).toLocaleDateString()}
+                        {job.estimatedHours}h • Due {formatDate(job.dueDate)}
                       </div>
                     </div>
 

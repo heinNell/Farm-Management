@@ -101,18 +101,18 @@ export default function Inventory() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 lg:space-y-6">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="flex-1 max-w-lg">
+      <div className="flex flex-col lg:flex-row gap-4 justify-between">
+        <div className="flex-1 max-w-xl">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search inventory..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
             />
           </div>
         </div>
@@ -120,42 +120,42 @@ export default function Inventory() {
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={handleExportToExcel}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="flex items-center px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors text-sm font-medium shadow-sm"
           >
-            <Download className="h-5 w-5 mr-2" />
+            <Download className="h-4 w-4 mr-2" />
             Export
           </button>
           <button
             onClick={() => setShowBulkUploadModal(true)}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors text-sm font-medium shadow-sm"
           >
-            <Upload className="h-5 w-5 mr-2" />
+            <Upload className="h-4 w-4 mr-2" />
             Bulk Upload
           </button>
           <button
             onClick={() => setShowScanModal(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
           >
-            <Scan className="h-5 w-5 mr-2" />
-            Scan Item
+            <Scan className="h-4 w-4 mr-2" />
+            Scan
           </button>
           <button
             onClick={() => setShowInventoryModal(true)}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
           >
-            <Plus className="h-5 w-5 mr-2" />
+            <Plus className="h-4 w-4 mr-2" />
             Add Item
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
-        <Filter className="h-5 w-5 text-gray-400" />
+      <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+        <Filter className="h-4 w-4 text-gray-400" />
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-gray-50"
         >
           {categories.map(category => (
             <option key={category} value={category}>
@@ -163,6 +163,9 @@ export default function Inventory() {
             </option>
           ))}
         </select>
+        <span className="text-sm text-gray-500 ml-auto">
+          {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {/* Loading State */}
@@ -174,10 +177,12 @@ export default function Inventory() {
           </div>
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow-md">
-          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No inventory items found</p>
-          <p className="text-gray-400 text-sm mt-2">
+        <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-4 bg-gray-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+            <Package className="h-10 w-10 text-gray-400" />
+          </div>
+          <p className="text-gray-900 font-medium text-lg">No inventory items found</p>
+          <p className="text-gray-500 text-sm mt-2">
             {searchTerm || selectedCategory !== 'all'
               ? 'Try adjusting your filters'
               : 'Add your first inventory item to get started'}
@@ -185,19 +190,19 @@ export default function Inventory() {
         </div>
       ) : (
         /* Inventory Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 lg:gap-5">
         {filteredItems.map((item, index) => (
           <motion.div
             key={item.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            transition={{ delay: index * 0.05 }}
+            className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all"
           >
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
-                <p className="text-sm text-gray-500">SKU: {item.sku}</p>
+                <h3 className="text-base font-semibold text-gray-900">{item.name}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">SKU: {item.sku}</p>
               </div>
               <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
                 {getStatusIcon(item.status)}
@@ -235,16 +240,16 @@ export default function Inventory() {
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-200 flex gap-2">
+            <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
               <button 
                 onClick={() => handleEditItem(item)}
-                className="flex-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                className="flex-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-sm font-medium py-1.5 rounded-lg transition-colors"
               >
                 Edit
               </button>
               <button 
                 onClick={() => { void handleDeleteItem(item.id) }}
-                className="flex-1 text-red-600 hover:text-red-700 text-sm font-medium"
+                className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 text-sm font-medium py-1.5 rounded-lg transition-colors"
               >
                 Delete
               </button>

@@ -2,16 +2,17 @@ import { AlertTriangle, Check, ChevronDown, ChevronUp, DollarSign, Package, Plus
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type {
-    Asset,
-    InventoryItem,
-    JobCard,
-    JobExtendedData,
-    JobIRRequest,
-    JobRepairItem,
-    JobSpareAllocation,
-    JobThirdPartyService
+  Asset,
+  InventoryItem,
+  JobCard,
+  JobExtendedData,
+  JobIRRequest,
+  JobRepairItem,
+  JobSpareAllocation,
+  JobThirdPartyService
 } from '../../types/database'
 import { formatCurrency, getCurrencySymbol, type CurrencyCode } from '../../utils/currency'
+import { DateInput } from '../ui/DateInput'
 import Modal from '../ui/Modal'
 
 // Currency options for dropdown
@@ -998,10 +999,10 @@ export default function JobExecutionModal({
                         
                         <div>
                           <label className="block text-xs text-gray-500 mb-1">Scheduled Date</label>
-                          <input
-                            type="date"
+                          <DateInput
                             value={service.scheduled_date?.split('T')[0] || ''}
-                            onChange={(e) => updateThirdPartyService(service.id, { scheduled_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                            onChange={(value) => updateThirdPartyService(service.id, { scheduled_date: value ? new Date(value).toISOString() : null })}
+                            placeholder="DD/MM/YYYY"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                           />
                         </div>

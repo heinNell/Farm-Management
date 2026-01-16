@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AlertCircle, Calendar, CheckCircle, Download, FileText, Filter, Settings, X } from 'lucide-react'
 import React, { useState } from 'react'
 import useExportData from '../../hooks/useExportData'
+import { DateInput } from '../ui/DateInput'
 
 interface ExportManagerProps {
   isOpen: boolean
@@ -254,19 +255,19 @@ export const ExportManager: React.FC<ExportManagerProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={dateRange.start}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  <DateInput
+                    value={dateRange.start || ''}
+                    onChange={(value) => setDateRange(prev => ({ ...prev, start: value }))}
+                    placeholder="DD/MM/YYYY"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={dateRange.end}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  <DateInput
+                    value={dateRange.end || ''}
+                    onChange={(value) => setDateRange(prev => ({ ...prev, end: value }))}
+                    placeholder="DD/MM/YYYY"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>

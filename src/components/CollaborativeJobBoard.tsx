@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
 import { useSupabaseRealtime } from '../hooks/useSupabaseRealtime';
 import { TABLES, type JobCard } from '../lib/supabase';
+import { formatDate } from '../utils/fuelCalculations';
 
 const columns = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
@@ -207,7 +208,7 @@ export const CollaborativeJobBoard: React.FC = () => {
                                 
                                 <div className="flex items-center text-xs text-gray-500">
                                   <Clock className="h-3 w-3 mr-1" />
-                                  {job.estimated_hours}h • Due: {new Date(job.due_date).toLocaleDateString()}
+                                  {job.estimated_hours}h • Due: {formatDate(job.due_date)}
                                 </div>
                               </div>
 
@@ -298,7 +299,7 @@ export const CollaborativeJobBoard: React.FC = () => {
                   
                   <div>
                     <span className="font-medium text-gray-700">Due Date:</span>
-                    <span className="ml-2">{new Date(selectedJob.due_date).toLocaleDateString()}</span>
+                    <span className="ml-2">{formatDate(selectedJob.due_date)}</span>
                   </div>
                 </div>
                 

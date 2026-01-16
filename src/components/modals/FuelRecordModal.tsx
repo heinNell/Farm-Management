@@ -2,6 +2,7 @@ import { Edit, Plus, Receipt, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase'; // Import supabase for asset fetching
 import type { Asset, FuelBunker, FuelRecord } from '../../types/database';
+import { DateInput } from '../ui/DateInput';
 import FormSelect from '../ui/FormSelect';
 
 interface Farm {
@@ -366,13 +367,12 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Filling Date *
               </label>
-              <input
-                type="date"
+              <DateInput
                 name="filling_date"
-                value={formData.filling_date}
-                onChange={handleChange}
+                value={formData.filling_date ?? ''}
+                onChange={(value) => setFormData(prev => ({ ...prev, filling_date: value }))}
                 required
-                max={new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split('T')[0] ?? ''}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>

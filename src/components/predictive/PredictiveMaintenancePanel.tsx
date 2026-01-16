@@ -49,12 +49,12 @@ export const PredictiveMaintenancePanel: React.FC<PredictiveMaintenancePanelProp
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
+  const formatDateLocal = (dateString: string) => {
+    const date = new Date(dateString)
+    const day = date.getDate().toString().padStart(2, '0')
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
   }
 
   const criticalPredictions = predictions.filter(p => p.failure_probability >= 0.7)
@@ -225,7 +225,7 @@ export const PredictiveMaintenancePanel: React.FC<PredictiveMaintenancePanelProp
                               Risk: {(prediction.failure_probability * 100).toFixed(0)}%
                             </span>
                             <span className="text-xs text-red-600">
-                              Predicted: {formatDate(prediction.predicted_failure_date)}
+                              Predicted: {formatDateLocal(prediction.predicted_failure_date)}
                             </span>
                           </div>
                         </div>
@@ -265,7 +265,7 @@ export const PredictiveMaintenancePanel: React.FC<PredictiveMaintenancePanelProp
                       </div>
                       <p className="text-sm text-yellow-700">{prediction.component_name}</p>
                       <p className="text-xs text-yellow-600 mt-1">
-                        Due: {formatDate(prediction.predicted_failure_date)}
+                        Due: {formatDateLocal(prediction.predicted_failure_date)}
                       </p>
                     </motion.div>
                   ))}
@@ -332,7 +332,7 @@ export const PredictiveMaintenancePanel: React.FC<PredictiveMaintenancePanelProp
                           {(prediction.failure_probability * 100).toFixed(0)}%
                         </span>
                       </td>
-                      <td className="p-3 text-gray-700">{formatDate(prediction.predicted_failure_date)}</td>
+                      <td className="p-3 text-gray-700">{formatDateLocal(prediction.predicted_failure_date)}</td>
                       <td className="p-3 text-gray-700">{(prediction.confidence_level * 100).toFixed(0)}%</td>
                       <td className="p-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(prediction.maintenance_priority)}`}>

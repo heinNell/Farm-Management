@@ -6,6 +6,7 @@ import MaintenanceCalendar from '../components/MaintenanceCalendar'
 import MaintenanceModal from '../components/modals/MaintenanceModal'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import type { MaintenanceSchedule } from '../types/database'
+import { formatDate } from '../utils/fuelCalculations'
 
 export default function Maintenance() {
   const { items: maintenanceItems, loading, create, update, delete: deleteItem, refresh } = useSupabaseCRUD<MaintenanceSchedule>('maintenance_schedules')
@@ -120,27 +121,27 @@ export default function Maintenance() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 lg:space-y-6">
       {/* Header Actions */}
       <div className="flex flex-col lg:flex-row gap-4 justify-between">
-        <div className="flex-1 max-w-lg">
+        <div className="flex-1 max-w-xl">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search maintenance..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
             />
           </div>
         </div>
         
         <div className="flex gap-2">
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+          <div className="flex rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <button
               onClick={() => setViewMode('list')}
-              className={`px-4 py-2 text-sm font-medium ${
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${
                 viewMode === 'list' 
                   ? 'bg-green-600 text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -150,7 +151,7 @@ export default function Maintenance() {
             </button>
             <button
               onClick={() => setViewMode('calendar')}
-              className={`px-4 py-2 text-sm font-medium ${
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${
                 viewMode === 'calendar' 
                   ? 'bg-green-600 text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -161,20 +162,20 @@ export default function Maintenance() {
           </div>
           <button 
             onClick={() => setShowModal(true)}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
           >
-            <Plus className="h-5 w-5 mr-2" />
+            <Plus className="h-4 w-4 mr-2" />
             Schedule Maintenance
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-gray-50"
         >
           <option value="all">All Statuses</option>
           <option value="scheduled">Scheduled</option>
@@ -183,6 +184,9 @@ export default function Maintenance() {
           <option value="completed">Completed</option>
           <option value="overdue">Overdue</option>
         </select>
+        <span className="text-sm text-gray-500 ml-auto self-center">
+          {filteredMaintenance.length} schedule{filteredMaintenance.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {loading ? (
@@ -193,9 +197,12 @@ export default function Maintenance() {
           </div>
         </div>
       ) : filteredMaintenance.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow-md">
-          <p className="text-gray-500 text-lg">No maintenance schedules found</p>
-          <p className="text-gray-400 text-sm mt-2">
+        <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-4 bg-gray-50 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+            <TrendingUp className="h-10 w-10 text-gray-400" />
+          </div>
+          <p className="text-gray-900 font-medium text-lg">No maintenance schedules found</p>
+          <p className="text-gray-500 text-sm mt-2">
             {searchTerm || statusFilter !== 'all'
               ? 'Try adjusting your filters'
               : 'Schedule your first maintenance to get started'}
@@ -216,8 +223,8 @@ export default function Maintenance() {
         <div className="space-y-6">
           {/* Predictive Maintenance Alerts */}
           {predictiveData.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
+              <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
                 Predictive Maintenance Alerts
               </h3>
@@ -240,7 +247,7 @@ export default function Maintenance() {
                       {Math.round(prediction.failureProbability * 100)}% Risk
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Predicted: {new Date(prediction.predictedFailureDate).toLocaleDateString()}
+                      Predicted: {formatDate(prediction.predictedFailureDate)}
                     </p>
                   </div>
                 </motion.div>
@@ -278,7 +285,7 @@ export default function Maintenance() {
                   <div>
                     <span className="text-sm text-gray-500">Next Due:</span>
                     <p className="font-medium">
-                      {new Date(item.next_due_date).toLocaleDateString()}
+                      {formatDate(item.next_due_date)}
                     </p>
                   </div>
                   <div>

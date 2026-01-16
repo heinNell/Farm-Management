@@ -7,6 +7,7 @@ import FuelBunkerTransferModal from '../components/modals/FuelBunkerTransferModa
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD';
 import { supabase } from '../lib/supabase';
 import type { FuelBunker, FuelBunkerFormData, FuelBunkerTransaction, FuelBunkerTransferFormData } from '../types/database';
+import { formatDateTime } from '../utils/fuelCalculations';
 
 interface Farm {
   id: string
@@ -557,7 +558,7 @@ export default function FuelBunkers() {
                           </div>
                           <div className="flex items-center gap-1 text-sm text-gray-500">
                             <Clock className="h-4 w-4" />
-                            {new Date(txn.transaction_date).toLocaleString()}
+                            {formatDateTime(txn.transaction_date)}
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">

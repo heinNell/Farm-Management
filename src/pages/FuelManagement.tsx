@@ -1,15 +1,30 @@
-import { BarChart3, Clock, Download, Edit, Fuel, Plus, Search, Trash2, Truck, Upload } from 'lucide-react'
-import React, { useState } from 'react'
+import { BarChart3, Calendar, ChevronDown, ChevronRight, Clock, Download, Edit, Fuel, Plus, Search, Trash2, Truck, Upload } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
 import FuelAnalytics from '../components/fuel/FuelAnalytics'
 import FuelDashboard from '../components/fuel/FuelDashboard'
 import AssetModal from '../components/modals/AssetModal'
 import BulkFuelUploadModal from '../components/modals/BulkFuelUploadModal'
 import FuelRecordModal from '../components/modals/FuelRecordModal'
 import OperatingSessionModal from '../components/modals/OperatingSessionModal'
+import { DateInput } from '../components/ui/DateInput'
 import { useFuelData } from '../hooks/useFuelData'
 import { supabase } from '../lib/supabase'
 import type { Asset, FuelRecord, OperatingSession } from '../types/database'
+import { formatDate, formatDateTime } from '../utils/fuelCalculations'
 import { downloadFuelTemplate, exportFuelRecordsToExcel } from '../utils/fuelExcelUtils'
+
+// Interface for daily fuel summary
+interface DailySummary {
+  date: string
+  dateFormatted: string
+  records: FuelRecord[]
+  totalQuantity: number
+  totalCost: number
+  avgPricePerLiter: number
+  assetCount: number
+  fuelTypes: string[]
+  locations: string[]
+}
 
 const FuelManagement: React.FC = () => {
   const {
@@ -51,6 +66,8 @@ const FuelManagement: React.FC = () => {
   const [fuelFilterDateFrom, setFuelFilterDateFrom] = useState('')
   const [fuelFilterDateTo, setFuelFilterDateTo] = useState('')
   const [fuelFilterDriver, setFuelFilterDriver] = useState('')
+  const [groupByDay, setGroupByDay] = useState(false)
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -148,6 +165,64 @@ const FuelManagement: React.FC = () => {
     setSearchTerm('')
   }
 
+  // Group records by day for consolidated view
+  const groupedRecordsByDay = useMemo((): DailySummary[] => {
+    const groups: Record<string, DailySummary> = {}
+    
+    filteredRecords.forEach(record => {
+      const dateStr = new Date(record.filling_date || record.date).toISOString().split('T')[0] ?? ''
+      
+      if (!groups[dateStr]) {
+        groups[dateStr] = {
+          date: dateStr,
+          dateFormatted: formatDate(dateStr),
+          records: [],
+          totalQuantity: 0,
+          totalCost: 0,
+          avgPricePerLiter: 0,
+          assetCount: 0,
+          fuelTypes: [],
+          locations: []
+        }
+      }
+      
+      const group = groups[dateStr]
+      if (group) {
+        group.records.push(record)
+        group.totalQuantity += record.quantity
+        group.totalCost += record.cost
+        
+        if (record.fuel_type && !group.fuelTypes.includes(record.fuel_type)) {
+          group.fuelTypes.push(record.fuel_type)
+        }
+        if (record.location && !group.locations.includes(record.location)) {
+          group.locations.push(record.location)
+        }
+      }
+    })
+    
+    // Calculate averages and asset counts
+    Object.values(groups).forEach(group => {
+      group.avgPricePerLiter = group.totalQuantity > 0 ? group.totalCost / group.totalQuantity : 0
+      group.assetCount = new Set(group.records.map(r => r.asset_id)).size
+    })
+    
+    // Sort by date descending (most recent first)
+    return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date))
+  }, [filteredRecords])
+
+  const toggleDayExpanded = (date: string) => {
+    setExpandedDays(prev => {
+      const next = new Set(prev)
+      if (next.has(date)) {
+        next.delete(date)
+      } else {
+        next.add(date)
+      }
+      return next
+    })
+  }
+
   const filteredSessions = operatingSessions.filter(session => {
     const asset = assets.find(a => a.id === session.asset_id)
     const matchesSearch = asset?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,31 +240,31 @@ const FuelManagement: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 lg:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+      <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Fuel Management System</h1>
-          <p className="text-gray-600 mt-1">Comprehensive fuel tracking and analytics for farm equipment</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Fuel Management System</h1>
+          <p className="text-gray-500 mt-1 text-sm">Comprehensive fuel tracking and analytics for farm equipment</p>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <nav className="flex overflow-x-auto p-1 gap-1">
           {tabs.map(tab => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as 'dashboard' | 'assets' | 'fuel-records' | 'sessions')}
-                className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`flex items-center py-2.5 px-4 font-medium text-sm transition-all rounded-lg whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'bg-green-50 text-green-700'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <Icon className="h-5 w-5 mr-2" />
+                <Icon className="h-4 w-4 mr-2" />
                 {tab.label}
               </button>
             )
@@ -434,10 +509,10 @@ const FuelManagement: React.FC = () => {
                 {/* Date From Filter */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">From Date</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={fuelFilterDateFrom}
-                    onChange={(e) => setFuelFilterDateFrom(e.target.value)}
+                    onChange={(value) => setFuelFilterDateFrom(value)}
+                    placeholder="DD/MM/YYYY"
                     className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
@@ -445,12 +520,50 @@ const FuelManagement: React.FC = () => {
                 {/* Date To Filter */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">To Date</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={fuelFilterDateTo}
-                    onChange={(e) => setFuelFilterDateTo(e.target.value)}
+                    onChange={(value) => setFuelFilterDateTo(value)}
+                    placeholder="DD/MM/YYYY"
                     className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
+                </div>
+              </div>
+              
+              {/* Group by Day Toggle */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setGroupByDay(!groupByDay)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                        groupByDay 
+                          ? 'bg-green-600 text-white shadow-sm' 
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Group by Day
+                    </button>
+                    {groupByDay && (
+                      <span className="text-sm text-gray-500">
+                        Showing <strong>{groupedRecordsByDay.length}</strong> days with transactions
+                      </span>
+                    )}
+                  </div>
+                  {groupByDay && groupedRecordsByDay.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (expandedDays.size === groupedRecordsByDay.length) {
+                          setExpandedDays(new Set())
+                        } else {
+                          setExpandedDays(new Set(groupedRecordsByDay.map(g => g.date)))
+                        }
+                      }}
+                      className="text-sm text-green-600 hover:text-green-700 font-medium"
+                    >
+                      {expandedDays.size === groupedRecordsByDay.length ? 'Collapse All' : 'Expand All'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -458,7 +571,7 @@ const FuelManagement: React.FC = () => {
             {/* Results Summary */}
             <div className="flex items-center justify-between text-sm text-gray-600">
               <span>
-                Showing <strong>{filteredRecords.length}</strong> of <strong>{fuelRecords.length}</strong> records
+                Showing <strong>{groupByDay ? `${groupedRecordsByDay.length} days` : filteredRecords.length}</strong> of <strong>{fuelRecords.length}</strong> records
               </span>
               {filteredRecords.length > 0 && (
                 <span>
@@ -472,92 +585,220 @@ const FuelManagement: React.FC = () => {
           {/* Fuel Records Table */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fleet / Asset</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consumption</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filling Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRecords.map(record => {
-                    const asset = assets.find(a => a.id === record.asset_id)
-                    return (
-                      <tr key={record.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{asset?.name || 'Unknown'}</div>
-                            <div className="text-xs text-gray-500">{asset?.type || 'N/A'}</div>
+              {groupByDay ? (
+                /* Grouped by Day View */
+                <div className="divide-y divide-gray-200">
+                  {groupedRecordsByDay.map(daySummary => (
+                    <div key={daySummary.date}>
+                      {/* Day Summary Header */}
+                      <button
+                        onClick={() => toggleDayExpanded(daySummary.date)}
+                        className="w-full px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            {expandedDays.has(daySummary.date) ? (
+                              <ChevronDown className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5 text-green-600" />
+                            )}
+                            <div className="text-left">
+                              <div className="font-semibold text-gray-900">{daySummary.dateFormatted}</div>
+                              <div className="text-sm text-gray-500">
+                                {daySummary.records.length} transaction{daySummary.records.length !== 1 ? 's' : ''} • {daySummary.assetCount} asset{daySummary.assetCount !== 1 ? 's' : ''}
+                              </div>
+                            </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full capitalize">
-                            {record.fuel_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {record.quantity.toFixed(1)}L
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">${record.cost.toFixed(2)}</div>
-                          <div className="text-xs text-gray-500">${record.price_per_liter.toFixed(2)}/L</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {record.current_hours !== null && record.current_hours !== undefined ? (
+                          <div className="flex items-center gap-6 text-right">
                             <div>
-                              <div className="text-sm text-gray-900">{record.current_hours}h</div>
-                              {record.hour_difference ? (
-                                <div className="text-xs text-green-600">+{record.hour_difference}h</div>
-                              ) : null}
+                              <div className="text-lg font-bold text-green-700">{daySummary.totalQuantity.toFixed(1)}L</div>
+                              <div className="text-xs text-gray-500">Total Quantity</div>
                             </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">N/A</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {record.consumption_rate ? (
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{record.consumption_rate.toFixed(2)} L/h</div>
-                              {record.hour_difference ? (
-                                <div className="text-xs text-gray-500">{record.hour_difference}h used</div>
-                              ) : null}
+                              <div className="text-lg font-bold text-gray-900">${daySummary.totalCost.toFixed(2)}</div>
+                              <div className="text-xs text-gray-500">Total Cost</div>
                             </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {record.location || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(record.filling_date || record.date).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button
-                            onClick={() => handleEditRecord(record)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => void handleDeleteRecord(record.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                            <div>
+                              <div className="text-lg font-bold text-blue-600">${daySummary.avgPricePerLiter.toFixed(2)}/L</div>
+                              <div className="text-xs text-gray-500">Avg Price</div>
+                            </div>
+                            <div className="flex flex-wrap gap-1 max-w-[150px]">
+                              {daySummary.fuelTypes.map(type => (
+                                <span key={type} className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full capitalize">
+                                  {type}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                      
+                      {/* Expanded Records */}
+                      {expandedDays.has(daySummary.date) && (
+                        <div className="bg-gray-50">
+                          <table className="w-full">
+                            <thead className="bg-gray-100">
+                              <tr>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fleet / Asset</th>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel Type</th>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {daySummary.records.map(record => {
+                                const asset = assets.find(a => a.id === record.asset_id)
+                                return (
+                                  <tr key={record.id} className="bg-white hover:bg-gray-50">
+                                    <td className="px-6 py-3 whitespace-nowrap">
+                                      <div>
+                                        <div className="text-sm font-medium text-gray-900">{asset?.name || 'Unknown'}</div>
+                                        <div className="text-xs text-gray-500">{asset?.type || 'N/A'}</div>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap">
+                                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full capitalize">
+                                        {record.fuel_type}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                                      {record.quantity.toFixed(1)}L
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap">
+                                      <div className="text-sm font-medium text-gray-900">${record.cost.toFixed(2)}</div>
+                                      <div className="text-xs text-gray-500">${record.price_per_liter.toFixed(2)}/L</div>
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap">
+                                      {record.current_hours !== null && record.current_hours !== undefined ? (
+                                        <div className="text-sm text-gray-900">{record.current_hours}h</div>
+                                      ) : (
+                                        <span className="text-sm text-gray-400">N/A</span>
+                                      )}
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                                      {record.location || 'N/A'}
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap text-sm font-medium space-x-2">
+                                      <button
+                                        onClick={() => handleEditRecord(record)}
+                                        className="text-blue-600 hover:text-blue-900"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => void handleDeleteRecord(record.id)}
+                                        className="text-red-600 hover:text-red-900"
+                                      >
+                                        Delete
+                                      </button>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {groupedRecordsByDay.length === 0 && (
+                    <div className="px-6 py-12 text-center text-gray-500">
+                      No fuel records found matching your filters.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Regular Table View */
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fleet / Asset</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consumption</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filling Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredRecords.map(record => {
+                      const asset = assets.find(a => a.id === record.asset_id)
+                      return (
+                        <tr key={record.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{asset?.name || 'Unknown'}</div>
+                              <div className="text-xs text-gray-500">{asset?.type || 'N/A'}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full capitalize">
+                              {record.fuel_type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {record.quantity.toFixed(1)}L
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">${record.cost.toFixed(2)}</div>
+                            <div className="text-xs text-gray-500">${record.price_per_liter.toFixed(2)}/L</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {record.current_hours !== null && record.current_hours !== undefined ? (
+                              <div>
+                                <div className="text-sm text-gray-900">{record.current_hours}h</div>
+                                {record.hour_difference ? (
+                                  <div className="text-xs text-green-600">+{record.hour_difference}h</div>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">N/A</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {record.consumption_rate ? (
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{record.consumption_rate.toFixed(2)} L/h</div>
+                                {record.hour_difference ? (
+                                  <div className="text-xs text-gray-500">{record.hour_difference}h used</div>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {record.location || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(record.filling_date || record.date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <button
+                              onClick={() => handleEditRecord(record)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => void handleDeleteRecord(record.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
@@ -646,7 +887,7 @@ const FuelManagement: React.FC = () => {
                   </div>
 
                   <div className="text-sm text-gray-500 mb-4">
-                    <p>{new Date(session.session_start).toLocaleString()} - {session.session_end ? new Date(session.session_end).toLocaleString() : 'Ongoing'}</p>
+                    <p>{formatDateTime(session.session_start)} - {session.session_end ? formatDateTime(session.session_end) : 'Ongoing'}</p>
                     {session.operator_notes && <p>Notes: {session.operator_notes}</p>}
                   </div>
 
@@ -678,7 +919,6 @@ const FuelManagement: React.FC = () => {
         <FuelAnalytics
           fuelRecords={fuelRecords}
           assets={assets}
-          operatingSessions={operatingSessions}
         />
       )}
 

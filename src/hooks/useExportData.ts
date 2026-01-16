@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import type { Asset, FuelRecord, InventoryItem, JobCard } from '../types/database'
+import { formatDate } from '../utils/fuelCalculations'
 
 interface ExportOptions {
   format: 'csv' | 'excel' | 'pdf'
@@ -306,7 +307,7 @@ ${data.map(row =>
       }
       
       const exportData: FuelRecordExport[] = (data as FuelRecordWithAsset[])?.map(record => ({
-        'Date': new Date(record.date).toLocaleDateString(),
+        'Date': formatDate(record.date),
         'Asset Name': record.assets?.name ?? 'N/A',
         'Asset Type': record.assets?.type ?? 'N/A',
         'Location': record.assets?.location ?? 'N/A',
@@ -391,7 +392,7 @@ ${data.map(row =>
       
       const exportData: ExportRecord[] = typedData.map(schedule => ({
         'Date': schedule.last_completed 
-          ? new Date(schedule.last_completed).toLocaleDateString() 
+          ? formatDate(schedule.last_completed) 
           : 'Not yet completed',
         'Equipment': schedule.equipment_name,
         'Maintenance Type': schedule.maintenance_type,
@@ -401,7 +402,7 @@ ${data.map(row =>
         'Current Hours': schedule.current_hours?.toString() ?? 'N/A',
         'Interval Type': schedule.interval_type,
         'Interval Value': schedule.interval_value?.toString() ?? '0',
-        'Next Due Date': schedule.next_due_date ? new Date(schedule.next_due_date).toLocaleDateString() : 'N/A',
+        'Next Due Date': schedule.next_due_date ? formatDate(schedule.next_due_date) : 'N/A',
         'Estimated Cost': schedule.estimated_cost?.toFixed(2) ?? 'N/A',
         'Failure Probability': `${(schedule.failure_probability * 100).toFixed(1)}%`,
         'Notes': schedule.notes ?? ''
@@ -478,7 +479,7 @@ ${data.map(row =>
         'Minimum Stock': item.min_stock,
         'Cost per Unit': 'N/A', // Not in InventoryItem type
         'Total Value': 'N/A', // Not in InventoryItem type
-        'Last Updated': new Date(item.updated_at).toLocaleDateString()
+        'Last Updated': formatDate(item.updated_at)
       })) ?? []
       
       const headers = Object.keys(exportData[0] ?? {})
@@ -549,11 +550,11 @@ ${data.map(row =>
         'Serial Number': asset.serial_number ?? 'N/A',
         'Location': asset.location ?? 'N/A',
         'Status': asset.status,
-        'Purchase Date': asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'N/A',
+        'Purchase Date': asset.purchase_date ? formatDate(asset.purchase_date) : 'N/A',
         'Purchase Cost': asset.purchase_cost?.toFixed(2) ?? 'N/A',
         'Operating Hours': asset.current_hours ?? 0,
         'Last Maintenance': 'N/A', // Not in Asset type
-        'Created': new Date(asset.created_at).toLocaleDateString()
+        'Created': formatDate(asset.created_at)
       })) ?? []
       
       const headers = Object.keys(exportData[0] ?? {})
@@ -666,7 +667,7 @@ ${data.map(row =>
           'Priority': job.priority,
           'Assigned To': job.assigned_to,
           'Location': job.location,
-          'Due Date': job.due_date ? new Date(job.due_date).toLocaleDateString() : 'N/A',
+          'Due Date': job.due_date ? formatDate(job.due_date) : 'N/A',
           'Estimated Hours': job.estimated_hours,
           'Actual Hours': job.actual_hours?.toString() ?? 'N/A',
           'Duration (Days)': durationText,

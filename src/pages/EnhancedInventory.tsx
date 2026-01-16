@@ -10,6 +10,7 @@ import { ToastContainer } from '../components/ui/Toast'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import { useToast } from '../hooks/useToast'
 import { InventoryFormData, InventoryItem } from '../types/database'
+import { formatDateTime } from '../utils/fuelCalculations'
 
 export default function EnhancedInventory() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -294,7 +295,7 @@ export default function EnhancedInventory() {
                 </div>
 
                 <div className="text-xs text-gray-400 pt-2 border-t">
-                  Last updated: {new Date(item.last_updated).toLocaleString()}
+                  Last updated: {formatDateTime(item.last_updated)}
                 </div>
               </div>
             </motion.div>

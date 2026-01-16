@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle, Upload, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { Asset, FuelRecord } from '../../types/database';
+import { formatDate } from '../../utils/fuelCalculations';
 import { parseFuelRecordsFromExcel } from '../../utils/fuelExcelUtils';
 
 interface BulkFuelUploadModalProps {
@@ -227,7 +228,7 @@ const BulkFuelUploadModal: React.FC<BulkFuelUploadModalProps> = ({
                             <tr key={idx} className="hover:bg-gray-50">
                               <td className="px-3 py-2 text-gray-600">{idx + 1}</td>
                               <td className="px-3 py-2 text-gray-900">
-                                {record.filling_date ? new Date(record.filling_date).toLocaleDateString() : 'N/A'}
+                                {record.filling_date ? formatDate(record.filling_date) : 'N/A'}
                               </td>
                               <td className="px-3 py-2 text-gray-900">{asset?.name || 'Unknown'}</td>
                               <td className="px-3 py-2 text-gray-900">{record.quantity}L</td>

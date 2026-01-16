@@ -4,6 +4,7 @@ import { Activity, AlertTriangle, BarChart3, Calendar, CheckCircle, ClipboardChe
 import { useEffect, useState } from 'react'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import type { Inspection, InventoryItem, JobCard, MaintenanceSchedule, RepairItem } from '../types/database'
+import { formatDate, formatDateTime } from '../utils/fuelCalculations'
 
 export default function Dashboard() {
   const { items: inventoryItems, loading: inventoryLoading } = useSupabaseCRUD<InventoryItem>('inventory_items')
@@ -144,14 +145,14 @@ export default function Dashboard() {
     if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
     if (diffInDays === 1) return '1 day ago'
     if (diffInDays < 7) return `${diffInDays} days ago`
-    return date.toLocaleDateString()
+    return formatDate(date)
   }
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 lg:space-y-8">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">Welcome to Farm Management</h1>
-        <p className="text-green-100">
+      <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 lg:p-8 text-white">
+        <h1 className="text-2xl lg:text-3xl font-bold mb-2">Welcome to Farm Management</h1>
+        <p className="text-green-100 text-sm lg:text-base">
           Monitor your farm operations, track equipment, and manage resources efficiently.
         </p>
       </div>
@@ -167,7 +168,7 @@ export default function Dashboard() {
       ) : (
         <>
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon
           return (
@@ -176,34 +177,29 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white rounded-lg shadow p-6"
-            >
+              className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Icon className="h-8 w-8 text-green-600" />
+                <div className="flex-shrink-0 p-3 bg-green-50 rounded-xl">
+                  <Icon className="h-6 w-6 lg:h-7 lg:w-7 text-green-600" />
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      {stat.name}
-                    </dt>
-                    <dd className="flex items-baseline">
-                      <div className="text-2xl font-semibold text-gray-900">
-                        {stat.value}
-                      </div>
-                      <div className={`
-                        ml-2 flex items-baseline text-sm font-semibold
-                        ${stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'}
-                      `}>
-                        {stat.changeType === 'increase' ? (
-                          <TrendingUp className="h-4 w-4 flex-shrink-0" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 flex-shrink-0" />
-                        )}
-                        <span className="ml-1">{stat.change}</span>
-                      </div>
-                    </dd>
-                  </dl>
+                <div className="ml-4 flex-1">
+                  <p className="text-xs lg:text-sm font-medium text-gray-500 truncate">
+                    {stat.name}
+                  </p>
+                  <div className="flex items-baseline mt-1">
+                    <p className="text-xl lg:text-2xl font-bold text-gray-900">
+                      {stat.value}
+                    </p>
+                    <span className={`ml-2 text-xs font-medium flex items-center
+                      ${stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>
+                      {stat.changeType === 'increase' ? (
+                        <TrendingUp className="h-3 w-3 mr-0.5" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3 mr-0.5" />
+                      )}
+                      {stat.change}
+                    </span>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -211,16 +207,15 @@ export default function Dashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
         {/* Recent Activities */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-lg shadow"
-        >
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activities</h3>
+          className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-5 lg:p-6">
+            <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Recent Activities</h3>
             {recentActivities.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <p>No recent activities</p>
@@ -275,25 +270,32 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-lg shadow"
-        >
-          <div className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <button className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Package className="h-8 w-8 text-green-600 mb-2" />
+          className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-5 lg:p-6">
+            <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-2 gap-3 lg:gap-4">
+              <button className="flex flex-col items-center p-4 lg:p-5 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-gray-200 transition-all">
+                <div className="p-2.5 bg-green-50 rounded-xl mb-3">
+                  <Package className="h-6 w-6 text-green-600" />
+                </div>
                 <span className="text-sm font-medium text-gray-900">Add Inventory</span>
               </button>
-              <button className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Wrench className="h-8 w-8 text-blue-600 mb-2" />
+              <button className="flex flex-col items-center p-4 lg:p-5 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-gray-200 transition-all">
+                <div className="p-2.5 bg-blue-50 rounded-xl mb-3">
+                  <Wrench className="h-6 w-6 text-blue-600" />
+                </div>
                 <span className="text-sm font-medium text-gray-900">Create Repair</span>
               </button>
-              <button className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Calendar className="h-8 w-8 text-purple-600 mb-2" />
+              <button className="flex flex-col items-center p-4 lg:p-5 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-gray-200 transition-all">
+                <div className="p-2.5 bg-purple-50 rounded-xl mb-3">
+                  <Calendar className="h-6 w-6 text-purple-600" />
+                </div>
                 <span className="text-sm font-medium text-gray-900">Schedule Job</span>
               </button>
-              <button className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <BarChart3 className="h-8 w-8 text-orange-600 mb-2" />
+              <button className="flex flex-col items-center p-4 lg:p-5 border border-gray-100 rounded-xl hover:bg-gray-50 hover:border-gray-200 transition-all">
+                <div className="p-2.5 bg-orange-50 rounded-xl mb-3">
+                  <BarChart3 className="h-6 w-6 text-orange-600" />
+                </div>
                 <span className="text-sm font-medium text-gray-900">View Reports</span>
               </button>
             </div>
@@ -307,11 +309,10 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white rounded-lg shadow"
-        >
-          <div className="p-6">
+          className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-5 lg:p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <h3 className="text-base lg:text-lg font-semibold text-gray-900 flex items-center">
                 <ClipboardCheck className="h-5 w-5 text-purple-600 mr-2" />
                 Upcoming Inspections
               </h3>
@@ -319,18 +320,18 @@ export default function Dashboard() {
                 View All →
               </a>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspection</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspector</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <div className="overflow-x-auto -mx-5 lg:-mx-6 px-5 lg:px-6">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Inspection</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Inspector</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Scheduled</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-50">
                   {upcomingInspections.map((inspection) => {
                     const now = new Date()
                     const scheduledDate = new Date(inspection.scheduled_date)
@@ -351,7 +352,7 @@ export default function Dashboard() {
                           {inspection.inspector}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {scheduledDate.toLocaleDateString()} at {scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatDateTime(scheduledDate)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           {isOverdue ? (

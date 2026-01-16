@@ -14,6 +14,9 @@ export class FuelKPICalculator {
 
   // 1. Fuel Consumption Rate (L/H) - Primary KPI
   // Uses operating_sessions first, falls back to fuel_records data
+  // NOTE: For accurate calculation, we exclude the first transaction per asset
+  // since the first transaction marks the commencement of tracking and has no
+  // prior reference point for calculating time intervals (hour_difference)
   calculateFuelConsumptionRate(assetId?: string): number {
     // First try operating sessions
     const sessions = assetId 
@@ -29,14 +32,58 @@ export class FuelKPICalculator {
     }
 
     // Fall back to fuel_records data (consumption_rate and hour_difference)
+    // Exclude the first transaction per asset (baseline record with no hour_difference)
     const records = assetId 
       ? this.fuelRecords.filter(r => r.asset_id === assetId)
       : this.fuelRecords
 
-    const totalFuelFromRecords = records.reduce((sum, r) => sum + r.quantity, 0)
-    const totalHoursFromRecords = records.reduce((sum, r) => sum + (r.hour_difference ?? 0), 0)
+    // Get records that have valid hour_difference (excluding first transactions)
+    // The first transaction per asset won't have a valid hour_difference
+    const recordsWithValidHours = this.getRecordsExcludingFirstPerAsset(records)
+    
+    const totalFuelFromRecords = recordsWithValidHours.reduce((sum, r) => sum + r.quantity, 0)
+    const totalHoursFromRecords = recordsWithValidHours.reduce((sum, r) => sum + (r.hour_difference ?? 0), 0)
 
     return totalHoursFromRecords > 0 ? totalFuelFromRecords / totalHoursFromRecords : 0
+  }
+
+  // Helper: Exclude the first transaction per asset (baseline record)
+  // The first transaction marks the commencement of fleet tracking and doesn't
+  // have a valid time interval for consumption calculation
+  private getRecordsExcludingFirstPerAsset(records: FuelRecord[]): FuelRecord[] {
+    // Group records by asset_id (skip records without asset_id)
+    const recordsByAsset = new Map<string, FuelRecord[]>()
+    
+    records.forEach(record => {
+      const assetId = record.asset_id
+      if (!assetId) return // Skip records without asset_id
+      if (!recordsByAsset.has(assetId)) {
+        recordsByAsset.set(assetId, [])
+      }
+      recordsByAsset.get(assetId)!.push(record)
+    })
+
+    // For each asset, sort by date and exclude the first record
+    const validRecords: FuelRecord[] = []
+    
+    recordsByAsset.forEach((assetRecords) => {
+      if (assetRecords.length <= 1) {
+        // Only one record for this asset - skip it (it's the baseline)
+        return
+      }
+      
+      // Sort by filling_date or date (ascending - oldest first)
+      const sortedRecords = [...assetRecords].sort((a, b) => {
+        const dateA = new Date(a.filling_date || a.date).getTime()
+        const dateB = new Date(b.filling_date || b.date).getTime()
+        return dateA - dateB
+      })
+      
+      // Add all records except the first one (the baseline)
+      validRecords.push(...sortedRecords.slice(1))
+    })
+
+    return validRecords
   }
 
   // Helper to get total operating hours from both sources
@@ -81,6 +128,7 @@ export class FuelKPICalculator {
   }
 
   // 3. Equipment Type Average (L/H)
+  // Excludes first transaction per asset for accurate consumption calculation
   calculateEquipmentTypeAverages(): Record<string, number> {
     const typeAverages: Record<string, number> = {}
     
@@ -98,10 +146,11 @@ export class FuelKPICalculator {
       if (sessionHours > 0) {
         typeAverages[type] = sessionFuel / sessionHours
       } else {
-        // Fall back to fuel records
-        const records = this.fuelRecords.filter(r => r.asset_id && assetIds.includes(r.asset_id))
-        const recordFuel = records.reduce((sum, r) => sum + r.quantity, 0)
-        const recordHours = records.reduce((sum, r) => sum + (r.hour_difference ?? 0), 0)
+        // Fall back to fuel records - exclude first transaction per asset
+        const allRecords = this.fuelRecords.filter(r => r.asset_id && assetIds.includes(r.asset_id))
+        const validRecords = this.getRecordsExcludingFirstPerAsset(allRecords)
+        const recordFuel = validRecords.reduce((sum, r) => sum + r.quantity, 0)
+        const recordHours = validRecords.reduce((sum, r) => sum + (r.hour_difference ?? 0), 0)
         
         typeAverages[type] = recordHours > 0 ? recordFuel / recordHours : 0
       }
@@ -156,6 +205,7 @@ export class FuelKPICalculator {
   }
 
   // 8. Operator Efficiency (L/H) - Per Asset
+  // Excludes first transaction per asset for accurate consumption calculation
   calculateOperatorEfficiency(): Record<string, number> {
     const totals = new Map<string, { fuel: number; hours: number }>()
 
@@ -171,9 +221,10 @@ export class FuelKPICalculator {
       })
     })
 
-    // If no operating sessions, use fuel records data
+    // If no operating sessions, use fuel records data (excluding first transactions)
     if (totals.size === 0 && this.fuelRecords.length > 0) {
-      this.fuelRecords.forEach(record => {
+      const validRecords = this.getRecordsExcludingFirstPerAsset(this.fuelRecords)
+      validRecords.forEach(record => {
         const asset = this.assets.find(a => a.id === record.asset_id)
         const label = asset ? asset.name : 'Unknown Asset'
         const current = totals.get(label) ?? { fuel: 0, hours: 0 }
@@ -261,6 +312,133 @@ export class FuelKPICalculator {
       .sort((a, b) => b.month.localeCompare(a.month)) // Sort Descending (Newest first)
   }
 
+  // 10. Weekly Trends by Asset Type (L/H)
+  // Calculates average consumption per week, grouped by asset type
+  // Excludes first transaction per asset for accurate consumption calculation
+  calculateWeeklyTrendsByAssetType(): Array<{
+    weekNumber: number
+    weekLabel: string
+    year: number
+    startDate: string
+    endDate: string
+    assetTypes: Record<string, {
+      consumption: number
+      totalFuel: number
+      totalHours: number
+      assetCount: number
+    }>
+  }> {
+    // Helper to get ISO week number from a date
+    const getWeekNumber = (date: Date): { week: number; year: number } => {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+      const dayNum = d.getUTCDay() || 7
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+      const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+      return { week: weekNo, year: d.getUTCFullYear() }
+    }
+
+    // Helper to get week start and end dates
+    const getWeekDates = (year: number, week: number): { start: string; end: string } => {
+      const jan4 = new Date(Date.UTC(year, 0, 4))
+      const dayOfWeek = jan4.getUTCDay() || 7
+      const weekStart = new Date(jan4)
+      weekStart.setUTCDate(jan4.getUTCDate() - dayOfWeek + 1 + (week - 1) * 7)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+      const startStr = weekStart.toISOString().split('T')[0] ?? ''
+      const endStr = weekEnd.toISOString().split('T')[0] ?? ''
+      return {
+        start: startStr,
+        end: endStr
+      }
+    }
+
+    // Get valid records (excluding first transaction per asset)
+    const validRecords = this.getRecordsExcludingFirstPerAsset(this.fuelRecords)
+
+    // Group data by week and asset type
+    const weeklyData: Record<string, {
+      weekNumber: number
+      year: number
+      assetTypes: Record<string, {
+        fuel: number
+        hours: number
+        assetIds: Set<string>
+      }>
+    }> = {}
+
+    validRecords.forEach(record => {
+      const recordDate = new Date(record.filling_date || record.date)
+      if (isNaN(recordDate.getTime())) return
+
+      const { week, year } = getWeekNumber(recordDate)
+      const weekKey = `${year}-W${week.toString().padStart(2, '0')}`
+
+      // Get asset type
+      const asset = this.assets.find(a => a.id === record.asset_id)
+      const assetType = asset?.type || 'Unknown'
+
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = {
+          weekNumber: week,
+          year,
+          assetTypes: {}
+        }
+      }
+
+      if (!weeklyData[weekKey].assetTypes[assetType]) {
+        weeklyData[weekKey].assetTypes[assetType] = {
+          fuel: 0,
+          hours: 0,
+          assetIds: new Set()
+        }
+      }
+
+      weeklyData[weekKey].assetTypes[assetType].fuel += record.quantity
+      weeklyData[weekKey].assetTypes[assetType].hours += record.hour_difference ?? 0
+      if (record.asset_id) {
+        weeklyData[weekKey].assetTypes[assetType].assetIds.add(record.asset_id)
+      }
+    })
+
+    // Convert to output format
+    return Object.entries(weeklyData)
+      .map(([_weekKey, data]) => {
+        const { start, end } = getWeekDates(data.year, data.weekNumber)
+        
+        const assetTypes: Record<string, {
+          consumption: number
+          totalFuel: number
+          totalHours: number
+          assetCount: number
+        }> = {}
+
+        Object.entries(data.assetTypes).forEach(([type, typeData]) => {
+          assetTypes[type] = {
+            consumption: typeData.hours > 0 ? typeData.fuel / typeData.hours : 0,
+            totalFuel: typeData.fuel,
+            totalHours: typeData.hours,
+            assetCount: typeData.assetIds.size
+          }
+        })
+
+        return {
+          weekNumber: data.weekNumber,
+          weekLabel: `Week ${data.weekNumber}`,
+          year: data.year,
+          startDate: start,
+          endDate: end,
+          assetTypes
+        }
+      })
+      .sort((a, b) => {
+        // Sort by year descending, then week descending
+        if (a.year !== b.year) return b.year - a.year
+        return b.weekNumber - a.weekNumber
+      })
+  }
+
   // Helper method to get average fuel price
   private getAverageFuelPrice(): number {
     if (this.fuelRecords.length === 0) return 0
@@ -292,7 +470,8 @@ export class FuelKPICalculator {
       performance: {
         taskSpecificConsumption: this.calculateTaskSpecificConsumption(),
         operatorEfficiency: this.calculateOperatorEfficiency(),
-        monthlyTrends: this.calculateMonthlyTrends()
+        monthlyTrends: this.calculateMonthlyTrends(),
+        weeklyTrendsByAssetType: this.calculateWeeklyTrendsByAssetType()
       },
       totalOperatingHours,
       totalFuelConsumed,
@@ -316,4 +495,59 @@ export const formatPercentage = (value: number): string => {
 
 export const formatHours = (value: number): string => {
   return `${value.toFixed(1)} hrs`
+}
+
+// Date formatting utilities - DD/MM/YYYY format
+export const formatDate = (dateInput: string | Date | null | undefined): string => {
+  if (!dateInput) return '-'
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+  if (isNaN(date.getTime())) return '-'
+  
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  
+  return `${day}/${month}/${year}`
+}
+
+// Format date with time - DD/MM/YYYY HH:MM
+export const formatDateTime = (dateInput: string | Date | null | undefined): string => {
+  if (!dateInput) return '-'
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+  if (isNaN(date.getTime())) return '-'
+  
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  
+  return `${day}/${month}/${year} ${hours}:${minutes}`
+}
+
+// Format date short - DD/MM (for compact displays)
+export const formatDateShort = (dateInput: string | Date | null | undefined): string => {
+  if (!dateInput) return '-'
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+  if (isNaN(date.getTime())) return '-'
+  
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  
+  return `${day}/${month}`
+}
+
+// Alias for formatDateShort for backwards compatibility
+export const formatShortDate = formatDateShort
+
+// Format month and year - MM/YYYY (for monthly displays)
+export const formatMonthYear = (dateInput: string | Date | null | undefined): string => {
+  if (!dateInput) return '-'
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+  if (isNaN(date.getTime())) return '-'
+  
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                      'July', 'August', 'September', 'October', 'November', 'December']
+  
+  return `${monthNames[date.getMonth()]} ${date.getFullYear()}`
 }

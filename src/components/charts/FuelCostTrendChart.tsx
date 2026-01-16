@@ -2,6 +2,7 @@
 import { AlertCircle, DollarSign, TrendingDown, TrendingUp } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { formatDate } from '../../utils/fuelCalculations'
 
 interface FuelPrice {
   id: string
@@ -272,7 +273,7 @@ export const FuelCostTrendChart: React.FC<FuelCostTrendChartProps> = ({
         <p className="font-semibold text-gray-900">
           {viewType === 'supplier_comparison' 
             ? String(label)
-            : label ? new Date(String(label)).toLocaleDateString() : ''
+            : label ? formatDate(String(label)) : ''
           }
         </p>
         {payload.map((entry, index) => (

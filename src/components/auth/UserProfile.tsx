@@ -1,6 +1,7 @@
 
 import { motion } from 'framer-motion'
 import { Clock, Crown, LogOut, Mail, Settings, Shield, User, UserCheck } from 'lucide-react'
+import { formatDate } from '../../utils/fuelCalculations'
 import { useAuthContext } from './AuthContext'
 
 export default function UserProfile() {
@@ -57,7 +58,7 @@ export default function UserProfile() {
             
             <div className="flex items-center space-x-2">
               <Clock className="h-4 w-4" />
-              <span>Member since {new Date(user.created_at || Date.now()).toLocaleDateString()}</span>
+              <span>Member since {formatDate(user.created_at || new Date().toISOString())}</span>
             </div>
 
             <div className="flex items-center space-x-2">

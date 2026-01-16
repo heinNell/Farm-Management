@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSupabaseCRUD } from '../../hooks/useSupabaseCRUD'
 import { useSupabaseRealtime } from '../../hooks/useSupabaseRealtime'
 import { MaintenanceAlertService } from '../../services/maintenanceAlerts'
+import { formatDate } from '../../utils/fuelCalculations'
 
 interface MaintenanceTemplate {
   id: string
@@ -334,7 +335,7 @@ export default function MaintenanceScheduler() {
               </button>
             </div>
             <button
-              onClick={generateAutomaticAlerts}
+              onClick={() => { void generateAutomaticAlerts() }}
               className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
             >
               <Bell className="h-4 w-4" />
@@ -394,7 +395,7 @@ export default function MaintenanceScheduler() {
               <div className="text-right">
                 <p className="text-sm text-gray-500">Due Date</p>
                 <p className="font-medium">
-                  {new Date(schedule.next_due_date).toLocaleDateString()}
+                  {formatDate(schedule.next_due_date)}
                 </p>
                 <p className="text-sm text-gray-500">
                   {schedule.estimated_duration}h estimated

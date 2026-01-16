@@ -421,12 +421,12 @@ export default function Settings() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
       {/* Settings Navigation */}
-      <div className="lg:w-1/3">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Settings</h3>
-          <nav className="space-y-2">
+      <div className="lg:w-80 flex-shrink-0">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Settings</h3>
+          <nav className="space-y-1.5">
             {settingsSections.map((section, index) => {
               const Icon = section.icon
               return (
@@ -434,21 +434,25 @@ export default function Settings() {
                   key={section.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: index * 0.05 }}
                   onClick={() => setActiveSection(section.id)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
+                  className={`w-full text-left p-3 rounded-xl transition-all ${
                     activeSection === section.id
-                      ? 'bg-green-100 text-green-900'
-                      : 'hover:bg-gray-50 text-gray-700'
+                      ? 'bg-green-50 text-green-900 border border-green-100'
+                      : 'hover:bg-gray-50 text-gray-700 border border-transparent'
                   }`}
                 >
                   <div className="flex items-center">
-                    <Icon className={`h-5 w-5 mr-3 ${
-                      activeSection === section.id ? 'text-green-600' : 'text-gray-400'
-                    }`} />
+                    <div className={`p-2 rounded-lg mr-3 ${
+                      activeSection === section.id ? 'bg-green-100' : 'bg-gray-100'
+                    }`}>
+                      <Icon className={`h-4 w-4 ${
+                        activeSection === section.id ? 'text-green-600' : 'text-gray-500'
+                      }`} />
+                    </div>
                     <div>
-                      <p className="font-medium">{section.title}</p>
-                      <p className="text-sm opacity-75">{section.description}</p>
+                      <p className="font-medium text-sm">{section.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{section.description}</p>
                     </div>
                   </div>
                 </motion.button>
@@ -459,13 +463,13 @@ export default function Settings() {
       </div>
 
       {/* Settings Content */}
-      <div className="lg:w-2/3">
-        <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="flex-1 min-w-0">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-base lg:text-lg font-semibold text-gray-900">
               {settingsSections.find(s => s.id === activeSection)?.title}
             </h3>
-            <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <button className="flex items-center px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
               <Save className="h-4 w-4 mr-2" />
               Save Changes
             </button>

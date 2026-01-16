@@ -2,6 +2,7 @@ import { Edit, Plus, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase'; // Import supabase for fetching assets
 import { Asset } from '../../types/database';
+import { DateInput } from '../ui/DateInput';
 
 interface AssetModalProps {
   isOpen: boolean;
@@ -222,11 +223,11 @@ const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose, onSave, asset 
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Purchase Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   name="purchase_date"
                   value={formData.purchase_date}
-                  onChange={handleChange}
+                  onChange={(value) => setFormData(prev => ({ ...prev, purchase_date: value }))}
+                  placeholder="DD/MM/YYYY"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>

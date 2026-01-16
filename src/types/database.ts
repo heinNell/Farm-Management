@@ -463,6 +463,19 @@ export interface PerformanceKPI {
     consumption: number
     cost: number
   }>
+  weeklyTrendsByAssetType: Array<{
+    weekNumber: number
+    weekLabel: string
+    year: number
+    startDate: string
+    endDate: string
+    assetTypes: Record<string, {
+      consumption: number
+      totalFuel: number
+      totalHours: number
+      assetCount: number
+    }>
+  }>
 }
 
 export interface ComprehensiveFuelKPI {
@@ -659,6 +672,10 @@ export interface FormFieldProps {
   onChange?: (value: string | number) => void
   className?: string
   step?: string
+  disabled?: boolean
+  min?: string | number
+  max?: string | number
+  autoComplete?: string
 }
 
 export interface ModalProps {

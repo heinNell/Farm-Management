@@ -7,6 +7,7 @@ import JobExecutionModal from '../components/modals/JobExecutionModal'
 import JobModal from '../components/modals/JobModal'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import type { JobCard, JobFormData } from '../types/database'
+import { formatDate } from '../utils/fuelCalculations'
 import { downloadJobCardPDF } from '../utils/jobCardPDF'
 
 const columns = [
@@ -127,27 +128,27 @@ export default function Jobs() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 lg:space-y-6">
       {/* Header Actions */}
       <div className="flex flex-col lg:flex-row gap-4 justify-between">
-        <div className="flex-1 max-w-lg">
+        <div className="flex-1 max-w-xl">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search jobs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
             />
           </div>
         </div>
         
         <div className="flex gap-2">
-          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+          <div className="flex rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <button
               onClick={() => setViewMode('kanban')}
-              className={`px-4 py-2 text-sm font-medium ${
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${
                 viewMode === 'kanban' 
                   ? 'bg-green-600 text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -157,7 +158,7 @@ export default function Jobs() {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-4 py-2 text-sm font-medium ${
+              className={`px-4 py-2.5 text-sm font-medium transition-colors ${
                 viewMode === 'list' 
                   ? 'bg-green-600 text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -168,20 +169,20 @@ export default function Jobs() {
           </div>
           <button 
             onClick={() => setShowModal(true)}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center px-4 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
           >
-            <Plus className="h-5 w-5 mr-2" />
+            <Plus className="h-4 w-4 mr-2" />
             New Job
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
-          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-gray-50"
         >
           <option value="all">All Priorities</option>
           <option value="low">Low Priority</option>
@@ -192,7 +193,7 @@ export default function Jobs() {
         <select
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm bg-gray-50"
         >
           <option value="all">All Assignees</option>
           {assignees.map(assignee => (
@@ -277,7 +278,7 @@ export default function Jobs() {
                 </div>
                 <div className="flex items-center">
                   <span className="text-sm text-gray-600">
-                    Due: {new Date(job.due_date).toLocaleDateString()}
+                    Due: {formatDate(job.due_date)}
                   </span>
                 </div>
               </div>

@@ -1,4 +1,5 @@
 import type { Asset, ChecklistItem, Inspection, InspectionSignature } from '../types/database'
+import { formatDate, formatDateTime } from './fuelCalculations'
 
 interface InspectionPDFOptions {
   inspection: Inspection
@@ -628,11 +629,11 @@ export function generateInspectionPDF({ inspection, assetName, asset }: Inspecti
       </div>
       <div class="info-item">
         <div class="info-label">Scheduled Date</div>
-        <div class="info-value">${new Date(inspection.scheduled_date).toLocaleDateString()}</div>
+        <div class="info-value">${formatDate(inspection.scheduled_date)}</div>
       </div>
       <div class="info-item">
         <div class="info-label">Created</div>
-        <div class="info-value">${new Date(inspection.created_at).toLocaleString()}</div>
+        <div class="info-value">${formatDateTime(inspection.created_at)}</div>
       </div>
       ${inspection.completed_date ? `
       <div class="info-item">

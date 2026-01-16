@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, TooltipProps, XAxis, YAxis } from 'recharts'
+import { formatDate, formatShortDate } from '../../utils/fuelCalculations'
 
 interface EfficiencyData {
   id: string
@@ -295,7 +296,7 @@ export const FuelEfficiencyChart: React.FC<FuelEfficiencyChartProps> = ({
         )}
         {data.date && (
           <p className="text-xs text-gray-500 mt-2">
-            {new Date(data.date).toLocaleDateString()}
+            {formatDate(data.date)}
           </p>
         )}
       </div>
@@ -356,11 +357,11 @@ export const FuelEfficiencyChart: React.FC<FuelEfficiencyChartProps> = ({
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="date" 
-              tickFormatter={(date: string) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              tickFormatter={(date: string) => formatShortDate(date)}
             />
             <YAxis />
             <Tooltip 
-              labelFormatter={(date: string) => new Date(date).toLocaleDateString()}
+              labelFormatter={(date: string) => formatDate(date)}
               formatter={(value: unknown, name: string) => {
                 if (typeof value !== 'number') return [String(value), name]
                 return name === 'avgFuelPerHour' ? [`${value.toFixed(2)}L/h`, 'Avg Fuel Rate'] : [value.toFixed(2), 'Avg Efficiency Rating']

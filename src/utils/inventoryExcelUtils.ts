@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { InventoryItem } from '../types/database';
+import { formatDate } from './fuelCalculations';
 
 export interface ParsedInventoryItem {
   sku: string;
@@ -225,7 +226,7 @@ export const exportInventoryToExcel = (items: InventoryItem[]): void => {
     'Status': item.status,
     'Supplier': item.supplier || '',
     'Unit Cost': item.unit_cost || '',
-    'Last Updated': new Date(item.last_updated).toLocaleDateString()
+    'Last Updated': formatDate(item.last_updated)
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
