@@ -2,16 +2,17 @@ import { AlertTriangle, Check, ChevronDown, ChevronUp, DollarSign, Package, Plus
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type {
-  Asset,
-  InventoryItem,
-  JobCard,
-  JobExtendedData,
-  JobIRRequest,
-  JobRepairItem,
-  JobSpareAllocation,
-  JobThirdPartyService
+    Asset,
+    InventoryItem,
+    JobCard,
+    JobExtendedData,
+    JobIRRequest,
+    JobRepairItem,
+    JobSpareAllocation,
+    JobThirdPartyService
 } from '../../types/database'
 import { formatCurrency, getCurrencySymbol, type CurrencyCode } from '../../utils/currency'
+import { formatDate } from '../../utils/fuelCalculations'
 import { DateInput } from '../ui/DateInput'
 import Modal from '../ui/Modal'
 
@@ -544,7 +545,7 @@ export default function JobExecutionModal({
                             {item.status === 'completed' ? (
                               <div className="flex items-center gap-2 text-green-600 text-sm">
                                 <Check className="h-4 w-4" />
-                                Completed on {new Date(item.completed_date!).toLocaleDateString()}
+                                Completed on {formatDate(item.completed_date)}
                               </div>
                             ) : (
                               <button

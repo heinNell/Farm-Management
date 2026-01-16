@@ -2,6 +2,7 @@ import { Edit, Plus, Receipt, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase'; // Import supabase for asset fetching
 import type { Asset, FuelBunker, FuelRecord } from '../../types/database';
+import { formatDate } from '../../utils/fuelCalculations';
 import { DateInput } from '../ui/DateInput';
 import FormSelect from '../ui/FormSelect';
 
@@ -195,7 +196,7 @@ const FuelRecordModal: React.FC<FuelRecordModalProps> = ({
       if (newDate > lastDate && formData.current_hours < lastHours) {
         const confirmProceed = window.confirm(
           `Warning: The current hour meter reading (${formData.current_hours}) is less than the previous reading (${lastHours}) ` +
-          `from ${lastDate.toLocaleDateString()}.\n\n` +
+          `from ${formatDate(lastDate)}.\n\n` +
           `This might indicate an error. Do you want to proceed anyway?`
         );
         if (!confirmProceed) {

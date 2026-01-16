@@ -416,7 +416,7 @@ export default function MaintenanceScheduler() {
                 <span className="text-sm text-gray-500">Last Completed:</span>
                 <p className="font-medium">
                   {schedule.last_completed_date 
-                    ? new Date(schedule.last_completed_date).toLocaleDateString()
+                    ? formatDate(schedule.last_completed_date)
                     : 'Never'
                   }
                 </p>

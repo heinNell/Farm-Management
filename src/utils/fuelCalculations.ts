@@ -498,10 +498,29 @@ export const formatHours = (value: number): string => {
 }
 
 // Date formatting utilities - DD/MM/YYYY format
+// Parse date string safely, handling both ISO (YYYY-MM-DD) and Date objects
+const parseDateSafe = (dateInput: string | Date): Date | null => {
+  if (dateInput instanceof Date) {
+    return isNaN(dateInput.getTime()) ? null : dateInput
+  }
+  
+  // For ISO date strings (YYYY-MM-DD), parse as local time, not UTC
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    const [year, month, day] = dateInput.split('-').map(Number)
+    if (year && month && day) {
+      return new Date(year, month - 1, day)
+    }
+  }
+  
+  // For other date strings, try standard parsing
+  const date = new Date(dateInput)
+  return isNaN(date.getTime()) ? null : date
+}
+
 export const formatDate = (dateInput: string | Date | null | undefined): string => {
   if (!dateInput) return '-'
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
-  if (isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateInput)
+  if (!date) return '-'
   
   const day = date.getDate().toString().padStart(2, '0')
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
@@ -513,8 +532,8 @@ export const formatDate = (dateInput: string | Date | null | undefined): string 
 // Format date with time - DD/MM/YYYY HH:MM
 export const formatDateTime = (dateInput: string | Date | null | undefined): string => {
   if (!dateInput) return '-'
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
-  if (isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateInput)
+  if (!date) return '-'
   
   const day = date.getDate().toString().padStart(2, '0')
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
@@ -528,8 +547,8 @@ export const formatDateTime = (dateInput: string | Date | null | undefined): str
 // Format date short - DD/MM (for compact displays)
 export const formatDateShort = (dateInput: string | Date | null | undefined): string => {
   if (!dateInput) return '-'
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
-  if (isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateInput)
+  if (!date) return '-'
   
   const day = date.getDate().toString().padStart(2, '0')
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
@@ -543,8 +562,8 @@ export const formatShortDate = formatDateShort
 // Format month and year - MM/YYYY (for monthly displays)
 export const formatMonthYear = (dateInput: string | Date | null | undefined): string => {
   if (!dateInput) return '-'
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
-  if (isNaN(date.getTime())) return '-'
+  const date = parseDateSafe(dateInput)
+  if (!date) return '-'
   
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                       'July', 'August', 'September', 'October', 'November', 'December']

@@ -2,6 +2,7 @@ import { AlertTriangle, Calendar, ClipboardList, FileText, Search, Wrench } from
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { Asset, ChecklistItem, Inspection, InspectionTemplate, MaintenanceAlert, MaintenanceSchedule } from '../../types/database'
+import { formatDate } from '../../utils/fuelCalculations'
 import Modal from '../ui/Modal'
 
 interface StartInspectionModalProps {
@@ -518,7 +519,7 @@ export default function StartInspectionModal({
                                   }
                                 </span>
                               )}
-                              <span>Created: {new Date(alert.created_at).toLocaleDateString()}</span>
+                              <span>Created: {formatDate(alert.created_at)}</span>
                             </div>
                           </div>
                           <span className={`text-xs px-2 py-1 rounded-full uppercase font-medium ${

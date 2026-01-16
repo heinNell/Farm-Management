@@ -2,6 +2,7 @@ import { AlertTriangle, Camera, Check, ChevronDown, ChevronUp, FileText, Pencil,
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { Asset, ChecklistItem, Inspection, InspectionSignature } from '../../types/database'
+import { formatDate } from '../../utils/fuelCalculations'
 import Modal from '../ui/Modal'
 
 interface InspectionExecutionModalProps {
@@ -801,7 +802,7 @@ export default function InspectionExecutionModal({
                   </div>
                   <div>
                     <span className="text-gray-500">Date:</span>
-                    <span className="ml-2 font-medium">{new Date().toLocaleDateString()}</span>
+                    <span className="ml-2 font-medium">{formatDate(new Date())}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Asset:</span>
