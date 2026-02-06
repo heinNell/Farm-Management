@@ -16,6 +16,7 @@ interface JobModalProps {
   onSubmit: (data: JobFormData) => Promise<void>
   item?: JobCard | null
   loading?: boolean
+  initialData?: Partial<JobFormData> | undefined
 }
 
 const PRIORITIES = [
@@ -29,7 +30,8 @@ export default function JobModal({
   onClose,
   onSubmit,
   item,
-  loading = false
+  loading = false,
+  initialData
 }: JobModalProps) {
   const [formData, setFormData] = useState<JobFormData>({
     title: '',
@@ -62,6 +64,20 @@ export default function JobModal({
         asset_id: item.asset_id || '',
         hour_meter_reading: item.hour_meter_reading || undefined
       })
+    } else if (initialData) {
+      // Use initialData for pre-populating a new job (e.g., from inspection)
+      setFormData({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        priority: initialData.priority || 'medium',
+        assigned_to: initialData.assigned_to || '',
+        location: initialData.location || '',
+        estimated_hours: initialData.estimated_hours || 1,
+        due_date: initialData.due_date || '',
+        tags: initialData.tags || [],
+        asset_id: initialData.asset_id || '',
+        hour_meter_reading: initialData.hour_meter_reading
+      })
     } else {
       setFormData({
         title: '',
@@ -78,7 +94,7 @@ export default function JobModal({
     }
     setErrors({})
     setNewTag('')
-  }, [item, isOpen])
+  }, [item, initialData, isOpen])
 
   useEffect(() => {
     if (isOpen) {

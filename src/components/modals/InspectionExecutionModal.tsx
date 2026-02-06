@@ -5,11 +5,20 @@ import type { Asset, ChecklistItem, Inspection, InspectionSignature } from '../.
 import { formatDate } from '../../utils/fuelCalculations'
 import Modal from '../ui/Modal'
 
+export interface InspectionIssue {
+  checklistItem: ChecklistItem
+  assetId: string | null
+  assetName: string | null
+  inspectionTitle: string
+  inspectionType: string
+}
+
 interface InspectionExecutionModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (data: Partial<Inspection>) => Promise<void>
   inspection: Inspection | null
+  onInspectionComplete?: (inspection: Inspection, issues: InspectionIssue[]) => void
 }
 
 interface CategoryGroup {
@@ -22,7 +31,8 @@ export default function InspectionExecutionModal({
   isOpen,
   onClose,
   onSave,
-  inspection
+  inspection,
+  onInspectionComplete
 }: InspectionExecutionModalProps) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
@@ -370,6 +380,22 @@ export default function InspectionExecutionModal({
       }
 
       await onSave(updateData)
+      
+      // If completing with issues, trigger the job card creation flow
+      if (complete && onInspectionComplete) {
+        const issueItems = checklistItems.filter(item => item.status === 'repair' || item.status === 'replace')
+        if (issueItems.length > 0) {
+          const issues: InspectionIssue[] = issueItems.map(item => ({
+            checklistItem: item,
+            assetId: inspection.asset_id,
+            assetName: asset?.name || null,
+            inspectionTitle: inspection.title,
+            inspectionType: inspection.type
+          }))
+          onInspectionComplete({ ...inspection, ...updateData } as Inspection, issues)
+        }
+      }
+      
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save inspection')

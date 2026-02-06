@@ -1,17 +1,17 @@
 
 import { motion } from 'framer-motion'
-import { Calendar, CheckCircle, ClipboardList, Copy, Download, Edit2, Eye, FileText, Play, Plus, Search, Settings, Trash2 } from 'lucide-react'
+import { ClipboardList, Copy, Download, Edit2, Eye, FileText, Play, Plus, Search, Settings, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import InspectionExecutionModal from '../components/modals/InspectionExecutionModal'
+import InspectionExecutionModal, { InspectionIssue } from '../components/modals/InspectionExecutionModal'
 import InspectionModal from '../components/modals/InspectionModal'
 import InspectionTemplateModal from '../components/modals/InspectionTemplateModal'
+import JobModal from '../components/modals/JobModal'
 import StartInspectionModal from '../components/modals/StartInspectionModal'
 import { useSupabaseCRUD } from '../hooks/useSupabaseCRUD'
 import { useToast } from '../hooks/useToast'
 import { supabase } from '../lib/supabase'
-import type { Asset, ChecklistItemTemplate, Inspection, InspectionTemplate, JobCard, JobExtendedData, JobRepairItem } from '../types/database'
-import { formatDate, formatDateTime } from '../utils/fuelCalculations'
+import type { Asset, ChecklistItemTemplate, Inspection, InspectionTemplate, JobCard, JobExtendedData, JobFormData, JobRepairItem } from '../types/database'
+import { formatDate } from '../utils/fuelCalculations'
 import { downloadInspectionPDF, viewInspectionReport } from '../utils/inspectionPDF'
 
 const frequencyLabels: Record<InspectionTemplate['frequency'], string> = {
@@ -24,7 +24,6 @@ const frequencyLabels: Record<InspectionTemplate['frequency'], string> = {
 }
 
 export default function Inspections() {
-  const navigate = useNavigate()
   const toast = useToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'scheduled' | 'in_progress' | 'completed' | 'overdue'>('all')
@@ -45,6 +44,14 @@ export default function Inspections() {
   // Execution modal state
   const [showExecutionModal, setShowExecutionModal] = useState(false)
   const [executingInspection, setExecutingInspection] = useState<Inspection | null>(null)
+  
+  // Job Card modal state (for creating job from inspection)
+  const [showJobModal, setShowJobModal] = useState(false)
+  const [jobInitialData, setJobInitialData] = useState<Partial<JobFormData> | undefined>(undefined)
+  const [pendingInspectionIssues, setPendingInspectionIssues] = useState<InspectionIssue[]>([])
+  
+  // Job Cards CRUD
+  const { create: createJob } = useSupabaseCRUD<JobCard>('job_cards')
   
   // Asset names cache for PDF generation
   const [assetCache, setAssetCache] = useState<Record<string, Asset>>({})
@@ -227,6 +234,111 @@ export default function Inspections() {
     setExecutingInspection(null)
   }
 
+  // Handle inspection complete with issues - auto-open Job Card modal
+  const handleInspectionComplete = (inspection: Inspection, issues: InspectionIssue[]) => {
+    if (issues.length === 0) return
+
+    // Build description from issues
+    const issueDescriptions = issues.map(issue => {
+      const status = issue.checklistItem.status === 'repair' ? '🔧 Repair needed' : '🔄 Replace needed'
+      const notes = issue.checklistItem.notes ? ` - ${issue.checklistItem.notes}` : ''
+      return `${status}: ${issue.checklistItem.description}${notes}`
+    }).join('\n')
+
+    // Determine priority based on issue severity
+    const hasReplaceItems = issues.some(i => i.checklistItem.status === 'replace')
+    const priority: 'low' | 'medium' | 'high' = hasReplaceItems ? 'high' : 'medium'
+
+    // Calculate due date (1 week from now)
+    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!
+
+    // Create initial data for Job Card
+    const initialData: Partial<JobFormData> = {
+      title: `Follow-up: ${inspection.title}`,
+      description: `Issues found during inspection "${inspection.title}" (${inspection.type.replace('_', ' ')}):\n\n${issueDescriptions}\n\nInspector: ${inspection.inspector}\nScore: ${inspection.score}%`,
+      priority,
+      assigned_to: inspection.inspector,
+      location: issues[0]?.assetName || '',
+      estimated_hours: issues.length * 0.5, // Estimate 30 min per issue
+      due_date: dueDate,
+      tags: ['inspection-followup', inspection.type],
+      ...(inspection.asset_id ? { asset_id: inspection.asset_id } : {})
+    }
+
+    setPendingInspectionIssues(issues)
+    setJobInitialData(initialData)
+    setShowJobModal(true)
+  }
+
+  // Handle Job Card submission from modal 
+  const handleSubmitJobFromModal = async (data: JobFormData) => {
+    // Create repair items from pending issues
+    const repairItems: JobRepairItem[] = pendingInspectionIssues.map(issue => ({
+      id: crypto.randomUUID(),
+      description: issue.checklistItem.description,
+      type: issue.checklistItem.status === 'replace' ? 'replace' : 'repair',
+      status: 'pending',
+      completed_date: null,
+      completed_by: null,
+      notes: issue.checklistItem.notes || null,
+      cost: 0
+    }))
+
+    // Create extended data with repair items
+    const extendedData: JobExtendedData = {
+      repair_items: repairItems,
+      spare_allocations: [],
+      ir_requests: [],
+      third_party_services: [],
+      total_parts_cost: 0,
+      total_service_cost: 0,
+      total_labor_cost: 0
+    }
+
+    await createJob({
+      ...data,
+      status: 'todo',
+      actual_hours: null,
+      notes: data.notes ?? null,
+      completed_date: null,
+      asset_id: data.asset_id ?? null,
+      hour_meter_reading: data.hour_meter_reading ?? null,
+      extended_data: extendedData
+    })
+
+    toast.success(`Job Card created with ${repairItems.length} repair item${repairItems.length !== 1 ? 's' : ''}!`)
+  }
+
+  // Open Job Modal for a completed inspection (manual button click)
+  const handleOpenJobModalForInspection = (inspection: Inspection) => {
+    // Get items marked for repair or replacement
+    const repairItems = inspection.checklist_items
+      .filter(item => item.status === 'repair' || item.status === 'replace')
+    
+    if (repairItems.length === 0) {
+      toast.info('No repair or replacement items found in this inspection.')
+      return
+    }
+
+    // Create issues array for the modal
+    const issues: InspectionIssue[] = repairItems.map(item => ({
+      checklistItem: item,
+      assetId: inspection.asset_id,
+      assetName: assetCache[inspection.asset_id || '']?.name || null,
+      inspectionTitle: inspection.title,
+      inspectionType: inspection.type
+    }))
+
+    // Reuse the same handler that formats the data
+    handleInspectionComplete(inspection, issues)
+  }
+
+  const handleCloseJobModal = () => {
+    setShowJobModal(false)
+    setJobInitialData(undefined)
+    setPendingInspectionIssues([])
+  }
+
   const handleCloseModal = () => {
     setShowCreateModal(false)
     setEditingInspection(null)
@@ -317,90 +429,6 @@ export default function Inspections() {
   const handleCloseTemplateModal = () => {
     setShowTemplateModal(false)
     setEditingTemplate(null)
-  }
-
-  // Create a job card from inspection findings
-  const handleCreateJobFromInspection = async (inspection: Inspection) => {
-    try {
-      // Get items marked for repair or replacement from the inspection
-      const repairItems = inspection.checklist_items
-        .filter(item => item.status === 'repair' || item.status === 'replace')
-      
-      // Build repair items for the job card extended data
-      const jobRepairItems: JobRepairItem[] = repairItems.map(item => ({
-        id: crypto.randomUUID(),
-        description: item.description,
-        type: item.status === 'replace' ? 'replace' : 'repair',
-        status: 'pending',
-        completed_date: null,
-        completed_by: null,
-        notes: item.notes || null,
-        cost: 0
-      }))
-
-      // Build description from all faults
-      const faultsFound = repairItems
-        .map((item, index) => `${index + 1}. [${item.status?.toUpperCase()}] ${item.description}${item.notes ? ` - ${item.notes}` : ''}`)
-      
-      // Also include findings and recommendations
-      const allIssues: string[] = [...faultsFound]
-      if (inspection.findings) {
-        allIssues.push(`\nFindings: ${inspection.findings}`)
-      }
-      if (inspection.recommendations) {
-        allIssues.push(`\nRecommendations: ${inspection.recommendations}`)
-      }
-
-      const description = allIssues.length > 0 
-        ? `Issues identified during ${inspection.type} inspection on ${formatDate(inspection.scheduled_date)}:\n\n${allIssues.join('\n')}`
-        : `Follow-up required for ${inspection.type} inspection completed on ${formatDate(inspection.scheduled_date)}.`
-
-      // Create the extended data with repair items from inspection
-      const extendedData: JobExtendedData = {
-        repair_items: jobRepairItems,
-        spare_allocations: [],
-        ir_requests: [],
-        third_party_services: [],
-        total_parts_cost: 0,
-        total_service_cost: 0,
-        total_labor_cost: 0
-      }
-
-      // Create the job card
-      const jobData: Omit<JobCard, 'id' | 'created_at' | 'updated_at'> = {
-        title: `Repair: ${inspection.title} - ${repairItems.length} Item${repairItems.length !== 1 ? 's' : ''} Found`,
-        description,
-        priority: inspection.score < 70 ? 'high' : inspection.score < 85 ? 'medium' : 'low',
-        status: 'todo',
-        assigned_to: inspection.inspector, // Default to inspector, can be changed
-        location: 'See inspection report',
-        estimated_hours: Math.max(repairItems.length * 2, 1), // Estimate 2 hours per fault
-        actual_hours: null,
-        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week from now
-        completed_date: null,
-        tags: ['inspection-follow-up', inspection.type, `inspection-${String(inspection.id).substring(0, 8)}`],
-        notes: `Generated from Inspection: ${inspection.title} (ID: ${String(inspection.id)})\n\nRepair Items: ${repairItems.length} | Replace Items: ${repairItems.filter(i => i.status === 'replace').length}`,
-        asset_id: inspection.asset_id,
-        hour_meter_reading: null,
-        extended_data: extendedData
-      }
-
-      const { error } = await supabase
-        .from('job_cards')
-        .insert([jobData])
-        .select()
-        .single()
-
-      if (error) throw error
-
-      toast.success(`Job card created with ${repairItems.length} repair/replacement item${repairItems.length !== 1 ? 's' : ''}!`)
-      
-      // Navigate to jobs page
-      navigate('/jobs')
-    } catch (error) {
-      console.error('Failed to create job card:', error)
-      toast.error(`Failed to create job card: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
   }
 
   const getStatusColor = (status: string) => {
@@ -499,9 +527,9 @@ export default function Inspections() {
       </div>
 
       {/* Inspections List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         {filteredInspections.length === 0 ? (
-          <div className="col-span-full text-center py-12">
+          <div className="text-center py-12">
             <p className="text-gray-500 text-lg">No inspections found</p>
             <p className="text-gray-400 text-sm mt-2">
               {searchTerm || statusFilter !== 'all' 
@@ -510,162 +538,157 @@ export default function Inspections() {
             </p>
           </div>
         ) : (
-          filteredInspections.map((inspection, index) => (
-          <motion.div
-            key={inspection.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">{inspection.title}</h3>
-                <p className="text-sm text-gray-600">Type: {inspection.type}</p>
-              </div>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(inspection.status)}`}>
-                {inspection.status === 'in_progress' ? 'In Progress' : inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
-              </div>
+          <div className="divide-y divide-gray-100">
+            {/* Header Row */}
+            <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div className="col-span-3">Inspection</div>
+              <div className="col-span-2">Type</div>
+              <div className="col-span-1 text-center">Status</div>
+              <div className="col-span-2">Inspector</div>
+              <div className="col-span-1 text-center">Score</div>
+              <div className="col-span-3 text-right">Actions</div>
             </div>
-
-            <div className="space-y-3 mb-4">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Inspector:</span>
-                <span className="text-sm font-medium">{inspection.inspector}</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Scheduled:</span>
-                <span className="text-sm font-medium">
-                  {formatDateTime(inspection.scheduled_date)}
-                </span>
-              </div>
-
-              {inspection.completed_date && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">Completed:</span>
-                  <span className="text-sm font-medium">
-                    {formatDate(inspection.completed_date)}
+            
+            {filteredInspections.map((inspection, index) => (
+              <motion.div
+                key={inspection.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: index * 0.03 }}
+                className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-gray-50 transition-colors text-sm"
+              >
+                {/* Title & Date */}
+                <div className="col-span-3">
+                  <p className="font-medium text-gray-900 truncate">{inspection.title}</p>
+                  <p className="text-xs text-gray-500">
+                    {formatDate(inspection.scheduled_date)}
+                    {inspection.completed_date && ` • Completed ${formatDate(inspection.completed_date)}`}
+                  </p>
+                </div>
+                
+                {/* Type */}
+                <div className="col-span-2">
+                  <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                    inspection.type === 'safety' ? 'bg-red-100 text-red-700' :
+                    inspection.type === 'maintenance' ? 'bg-blue-100 text-blue-700' :
+                    inspection.type === 'compliance' ? 'bg-purple-100 text-purple-700' :
+                    'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {inspection.type.replace('_', '-')}
                   </span>
                 </div>
-              )}
-
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Progress:</span>
-                <span className="text-sm font-medium">
-                  {inspection.progress}%
-                </span>
-              </div>
-
-              {inspection.score > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">Score:</span>
-                  <span className={`text-sm font-bold ${getScoreColor(inspection.score)}`}>
-                    {inspection.score}%
+                
+                {/* Status */}
+                <div className="col-span-1 text-center">
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(inspection.status)}`}>
+                    {inspection.status === 'in_progress' ? 'Active' : 
+                     inspection.status.charAt(0).toUpperCase() + inspection.status.slice(1)}
                   </span>
                 </div>
-              )}
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-              <div 
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  inspection.status === 'completed' ? 'bg-green-500' : 'bg-blue-500'
-                }`}
-                style={{ 
-                  width: `${inspection.progress}%` 
-                }}
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-2">
-              {inspection.status === 'completed' ? (
-                <>
-                  <button 
-                    onClick={() => { void handleDownloadPDF(inspection) }}
-                    className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    Download PDF
-                  </button>
-                  <button 
-                    onClick={() => { void handleViewReport(inspection) }}
-                    className="flex items-center px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    View Report
-                  </button>
-                  {(inspection.findings || inspection.recommendations || 
-                    inspection.checklist_items?.some(item => !item.completed)) && (
-                    <button 
-                      onClick={() => { void handleCreateJobFromInspection(inspection) }}
-                      className="flex items-center px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                    >
-                      <ClipboardList className="h-4 w-4 mr-1" />
-                      Create Job Card
-                    </button>
+                
+                {/* Inspector */}
+                <div className="col-span-2 text-gray-600 truncate">
+                  {inspection.inspector}
+                </div>
+                
+                {/* Score */}
+                <div className="col-span-1 text-center">
+                  {inspection.score > 0 ? (
+                    <span className={`font-semibold ${getScoreColor(inspection.score)}`}>
+                      {inspection.score}%
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
                   )}
-                </>
-              ) : inspection.status === 'in_progress' ? (
-                <>
-                  <button 
-                    onClick={() => handleStartExecution(inspection)}
-                    className="flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <Play className="h-4 w-4 mr-1" />
-                    Continue Inspection
-                  </button>
-                  <button 
-                    onClick={() => { void handleViewReport(inspection) }}
-                    className="flex items-center px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Report
-                  </button>
-                  <button 
-                    onClick={() => handleEditInspection(inspection)}
-                    className="flex items-center px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <Edit2 className="h-4 w-4 mr-1" />
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => { void handleDeleteInspection(inspection.id) }}
-                    className="flex items-center px-3 py-2 text-sm text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button 
-                    onClick={() => handleStartExecution(inspection)}
-                    className="flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Start Inspection
-                  </button>
-                  <button 
-                    onClick={() => handleEditInspection(inspection)}
-                    className="flex items-center px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <Calendar className="h-4 w-4 mr-1" />
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => { void handleDeleteInspection(inspection.id) }}
-                    className="flex items-center px-3 py-2 text-sm text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-          </motion.div>
-          ))
+                </div>
+                
+                {/* Actions */}
+                <div className="col-span-3 flex justify-end gap-1">
+                  {inspection.status === 'completed' ? (
+                    <>
+                      <button 
+                        onClick={() => { void handleDownloadPDF(inspection) }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Download PDF"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => { void handleViewReport(inspection) }}
+                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                        title="View Report"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                      {(inspection.findings || inspection.recommendations || 
+                        inspection.checklist_items?.some(item => item.status === 'repair' || item.status === 'replace')) && (
+                        <button 
+                          onClick={() => handleOpenJobModalForInspection(inspection)}
+                          className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                          title="Create Job Card"
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </button>
+                      )}
+                    </>
+                  ) : inspection.status === 'in_progress' ? (
+                    <>
+                      <button 
+                        onClick={() => handleStartExecution(inspection)}
+                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                      >
+                        Continue
+                      </button>
+                      <button 
+                        onClick={() => { void handleViewReport(inspection) }}
+                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                        title="View Progress"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleEditInspection(inspection)}
+                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => { void handleDeleteInspection(inspection.id) }}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => handleStartExecution(inspection)}
+                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                      >
+                        Start
+                      </button>
+                      <button 
+                        onClick={() => handleEditInspection(inspection)}
+                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => { void handleDeleteInspection(inspection.id) }}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -792,6 +815,15 @@ export default function Inspections() {
         onClose={handleCloseExecutionModal}
         onSave={handleSaveExecution}
         inspection={executingInspection}
+        onInspectionComplete={handleInspectionComplete}
+      />
+
+      {/* Job Modal for creating job cards from inspection issues */}
+      <JobModal
+        isOpen={showJobModal}
+        onClose={handleCloseJobModal}
+        onSubmit={handleSubmitJobFromModal}
+        {...(jobInitialData ? { initialData: jobInitialData } : {})}
       />
     </div>
   )
